@@ -30,6 +30,7 @@ class AutomotiveMusicService : MediaLibraryService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var session: MediaLibrarySession? = null
     private lateinit var lastQueue: LastQueueStore
+    private lateinit var layout: BrowseLayoutStore
     private var saveJob: Job? = null
 
     override fun onCreate() {
@@ -44,7 +45,8 @@ class AutomotiveMusicService : MediaLibraryService() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         lastQueue = LastQueueStore(this)
-        val librarySession = MediaLibrarySession.Builder(this, player, AutomotiveLibraryCallback(tree, scope, sessionActivity, lastQueue))
+        layout = BrowseLayoutStore(this)
+        val librarySession = MediaLibrarySession.Builder(this, player, AutomotiveLibraryCallback(tree, scope, sessionActivity, lastQueue, layout))
             .setSessionActivity(sessionActivity)
             .setMediaButtonPreferences(PlaybackButtons.forPlayer(player))
             .build()
@@ -52,6 +54,7 @@ class AutomotiveMusicService : MediaLibraryService() {
         player.addListener(QueueSaver())
         session = librarySession
         app.appleTokens.addListener(onAccountChanged)
+        layout.addListener(onLayoutChanged)
 
         // Show the last song in AAOS right away (not playing; Play resumes from the saved position).
         lastQueue.restore()?.let {
@@ -93,6 +96,14 @@ class AutomotiveMusicService : MediaLibraryService() {
         if (app.appleTokens.userToken == null) lastQueue.clear() else warmUp()
     }
 
+    /** Tiles/list switched: every folder's layout hint changed, so make AAOS re-fetch them all. */
+    private val onLayoutChanged: () -> Unit = {
+        session?.let { s ->
+            AppLog.i(MEDIA_SESSION, "Browse layout changed (grid: ${layout.grid}); refreshing library")
+            MediaIds.FIXED.forEach { s.notifyChildrenChanged(it, Int.MAX_VALUE, null) }
+        }
+    }
+
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
 
     /**
@@ -113,6 +124,7 @@ class AutomotiveMusicService : MediaLibraryService() {
         AppLog.i(MEDIA_SESSION, "Service destroyed")
         session?.player?.let(lastQueue::save)
         (application as AAOSMusicApp).appleTokens.removeListener(onAccountChanged)
+        layout.removeListener(onLayoutChanged)
         session?.run {
             player.release()
             release()

@@ -48,7 +48,7 @@ object MediaIds {
         data class Unknown(val raw: String) : Parsed
     }
 
-    private val FIXED = setOf(ROOT, HOME, LIBRARY, RECENT, RECOMMENDED, PLAYLISTS, ARTISTS, ALBUMS, SONGS)
+    val FIXED = setOf(ROOT, HOME, LIBRARY, RECENT, RECOMMENDED, PLAYLISTS, ARTISTS, ALBUMS, SONGS)
 
     fun parse(mediaId: String): Parsed = when {
         mediaId in FIXED -> Parsed.Fixed(mediaId)

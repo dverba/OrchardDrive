@@ -37,6 +37,7 @@ class AutomotiveLibraryCallback(
     /** Opens the parked-mode account screen; offered by AAOS as the "Sign in" action. */
     private val signInIntent: PendingIntent,
     private val lastQueue: LastQueueStore,
+    private val layout: BrowseLayoutStore,
 ) : MediaLibrarySession.Callback {
 
     /** Last search per query, served from onGetSearchResult. */
@@ -68,11 +69,14 @@ class AutomotiveLibraryCallback(
         val extras = Bundle().apply {
             // Tells AAOS to show the search button (MediaBrowserServiceCompat's BROWSER_SERVICE_EXTRAS_KEY_SEARCH_SUPPORTED).
             putBoolean("android.media.browse.SEARCH_SUPPORTED", true)
-            putInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_BROWSABLE, MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM)
+            putInt(
+                MediaConstants.EXTRAS_KEY_CONTENT_STYLE_BROWSABLE,
+                if (layout.grid) MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM else MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM,
+            )
             putInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_PLAYABLE, MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM)
         }
         val rootParams = LibraryParams.Builder().setExtras(extras).build()
-        return Futures.immediateFuture(LibraryResult.ofItem(MediaItemMapper.toMediaItem(tree.root), rootParams))
+        return Futures.immediateFuture(LibraryResult.ofItem(MediaItemMapper.toMediaItem(tree.root, layout.grid), rootParams))
     }
 
     override fun onGetChildren(
@@ -98,7 +102,7 @@ class AutomotiveLibraryCallback(
             LibraryResult.ofError(SessionError.ERROR_BAD_VALUE)
         } else {
             AppLog.d(AAOS_LIBRARY, "Children of '$parentId': ${children.size} (page $page/$pageSize)")
-            LibraryResult.ofItemList(children.page(page, pageSize).map(MediaItemMapper::toMediaItem), params)
+            LibraryResult.ofItemList(children.page(page, pageSize).map { MediaItemMapper.toMediaItem(it, layout.grid) }, params)
         }
     }
 
@@ -109,7 +113,7 @@ class AutomotiveLibraryCallback(
     ): ListenableFuture<LibraryResult<MediaItem>> = scope.future {
         guarded(session) {
             tree.getItem(mediaId)
-                ?.let { LibraryResult.ofItem(MediaItemMapper.toMediaItem(it), null) }
+                ?.let { LibraryResult.ofItem(MediaItemMapper.toMediaItem(it, layout.grid), null) }
                 ?: LibraryResult.ofError(SessionError.ERROR_BAD_VALUE)
         }
     }
@@ -143,7 +147,7 @@ class AutomotiveLibraryCallback(
     ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> = scope.future {
         guarded(session) {
             val results = searchCache[query] ?: tree.search(query).also { searchCache[query] = it }
-            LibraryResult.ofItemList(results.page(page, pageSize).map(MediaItemMapper::toMediaItem), params)
+            LibraryResult.ofItemList(results.page(page, pageSize).map { MediaItemMapper.toMediaItem(it, layout.grid) }, params)
         }
     }
 

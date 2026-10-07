@@ -29,30 +29,27 @@ object MediaItemMapper {
     private fun folderIconUri(mediaId: String): Uri? =
         folderIcons[mediaId]?.let { Uri.parse("android.resource://${BuildConfig.APPLICATION_ID}/drawable/$it") }
 
-    fun toMediaItem(node: BrowseNode): MediaItem {
+    /**
+     * [grid] picks tiles or list rows for the children of browsable folders. Songs are always
+     * rows, and Home/Library's category folders (icons, not artwork) are always rows.
+     */
+    fun toMediaItem(node: BrowseNode, grid: Boolean = true): MediaItem {
         node.song?.let { song -> return toPlayableItem(song, node.mediaId) }
 
         val extras = Bundle()
         node.groupTitle?.let { extras.putString(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, it) }
-        if (node.kind == BrowseNode.Kind.BUCKET) {
-            // Letter folders read as a compact list; their contents (albums/artists) as a grid.
-            extras.putInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_SINGLE_ITEM, MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM)
-            extras.putInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_BROWSABLE, MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM)
+        if (node.browsable) {
+            val childStyle = when {
+                node.mediaId == MediaIds.HOME || node.mediaId == MediaIds.LIBRARY -> MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM
+                grid -> MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM
+                else -> MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM
+            }
+            extras.putInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_BROWSABLE, childStyle)
             extras.putInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_PLAYABLE, MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM)
         }
-        if (node.mediaId == MediaIds.HOME || node.mediaId == MediaIds.LIBRARY) {
-            // The tabs' children are artwork-less category folders; rows read better than big blank tiles.
-            extras.putInt(
-                MediaConstants.EXTRAS_KEY_CONTENT_STYLE_BROWSABLE,
-                MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM,
-            )
-        }
-        if (node.kind == BrowseNode.Kind.ALBUM || node.kind == BrowseNode.Kind.PLAYLIST) {
-            // Album/playlist contents read best as a track list even though the folders themselves are a grid.
-            extras.putInt(
-                MediaConstants.EXTRAS_KEY_CONTENT_STYLE_PLAYABLE,
-                MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM,
-            )
+        if (node.kind == BrowseNode.Kind.BUCKET) {
+            // Letter folders themselves read as a compact list, whatever their contents use.
+            extras.putInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_SINGLE_ITEM, MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM)
         }
         val metadata = MediaMetadata.Builder()
             .setTitle(node.title)

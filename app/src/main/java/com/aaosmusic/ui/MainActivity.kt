@@ -8,6 +8,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.Switch
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
@@ -18,6 +19,7 @@ import androidx.media3.session.SessionToken
 import com.aaosmusic.AAOSMusicApp
 import com.aaosmusic.BuildConfig
 import com.aaosmusic.automotive.AutomotiveMusicService
+import com.aaosmusic.automotive.BrowseLayoutStore
 import com.aaosmusic.automotive.MediaIds
 import com.aaosmusic.util.DebugReport
 import kotlinx.coroutines.launch
@@ -57,6 +59,19 @@ class MainActivity : ComponentActivity() {
                 setTypeface(typeface, Typeface.BOLD)
             })
         }
+        val layout = BrowseLayoutStore(this)
+        column.addView(Switch(this).apply {
+            text = "Show albums, artists and playlists as tiles"
+            textSize = 22f
+            isChecked = layout.grid
+            setPadding(0, pad / 2, 0, pad / 2)
+            setOnCheckedChangeListener { _, checked -> layout.grid = checked }
+        })
+        // Media Center keeps the screens it already loaded; switching tabs makes it re-read them.
+        column.addView(TextView(this).apply {
+            text = "Switch between the Home and Library tabs to see the change."
+            textSize = 18f
+        })
         status = TextView(this).apply {
             textSize = 20f
             typeface = Typeface.MONOSPACE
