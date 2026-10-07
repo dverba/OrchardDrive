@@ -57,7 +57,7 @@
             Parked-only settings/account/debug screen. AAOS media apps don't get a regular launcher
             entry; Media Center opens this via APPLICATION_PREFERENCES (gear icon) and the session
             activity. Launch manually with:
-            adb shell am start -n com.aaosmusic/.ui.MainActivity
+            adb shell am start -n com.dverba.aaosmusic/com.aaosmusic.ui.MainActivity
         -->
         <activity
             android:name=".ui.MainActivity"

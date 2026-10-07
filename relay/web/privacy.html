@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AAOSMusic for Apple Music: Privacy Policy</title>
+<style>body{font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:720px;margin:40px auto;padding:0 16px;color:#1d1d1f;background:#fff}
+@media (prefers-color-scheme:dark){body{color:#f5f5f7;background:#000}}h1{font-size:28px}h2{font-size:19px;margin-top:28px}</style></head>
+<body>
+<h1>AAOSMusic for Apple Music: Privacy Policy</h1>
+<p>Last updated: 7 October 2026</p>
+<p>AAOSMusic for Apple Music ("the app") is an independent player that lets Apple Music subscribers play
+their own Apple Music library in cars running Android Automotive OS. It is not affiliated with, endorsed
+by, or sponsored by Apple Inc. Apple and Apple Music are trademarks of Apple Inc.</p>
+
+<h2>What the app handles</h2>
+<ul>
+<li><b>Apple Music access token.</b> When you sign in, you approve access on your phone through Apple's
+own sign-in page. Your Apple ID password goes only to Apple. The resulting Apple Music user token is passed
+to the car through our sign-in relay and stored on the car in the app's private storage, so you don't
+have to sign in every drive. Signing out deletes it from the car.</li>
+<li><b>Sign-in relay.</b> During sign-in, the relay (hosted on Supabase) briefly holds a one-time code and
+the token so the car can collect it. That record is deleted when the car collects the token, or after
+5 minutes. To limit abuse, the relay stores a salted hash of the requesting IP address alongside each
+sign-in attempt, never the address itself.</li>
+<li><b>Music data.</b> The app requests your library, playlists, recently played items, recommendations
+and search results directly from Apple's Apple Music API in order to display and play them. It doesn't
+send this data anywhere else. Playback is reported to Apple as with any Apple Music app.</li>
+<li><b>Debug reports (optional).</b> Only if you tap <i>Send debug report</i>, the app uploads a
+diagnostic report: app version, device model and Android version, screen size, whether you are signed
+in (yes/no), the app's recent internal log (which may include song titles and error messages) and the app's
+own system log. Access tokens are removed before upload. Reports are used only to fix problems.</li>
+</ul>
+
+<h2>What the app doesn't do</h2>
+<ul><li>No advertising, no analytics SDKs, no tracking across apps or websites.</li>
+<li>No selling or sharing of data with third parties, apart from the service providers needed to run the
+app: Apple (music service) and Supabase (sign-in relay, debug reports).</li></ul>
+
+<h2>Retention and deletion</h2>
+<p>Sign-in relay records: up to 5 minutes. Debug reports: kept until the issue is resolved, then deleted.
+To delete the data on the car, sign out or uninstall the app. To have debug reports deleted, contact the developer
+using the email address on the Google Play listing.</p>
+
+<h2>Changes</h2>
+<p>Updates to this policy will be posted on this page.</p>
+</body></html>

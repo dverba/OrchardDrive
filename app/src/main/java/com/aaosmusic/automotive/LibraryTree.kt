@@ -76,7 +76,7 @@ class LibraryTree(
     private val bucketThreshold: Int = 300,
 ) {
     data class Labels(
-        val appName: String = "Apple Music Test",
+        val appName: String = "AAOSMusic for Apple Music",
         val home: String = "Home",
         val library: String = "Library",
         val recent: String = "Recently Played",

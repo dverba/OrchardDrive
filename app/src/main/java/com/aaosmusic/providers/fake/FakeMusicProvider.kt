@@ -16,7 +16,7 @@ import kotlinx.coroutines.delay
  * provider would exercise them.
  *
  * @param artworkBaseUri prefix that artwork resource names are appended to, e.g.
- *   `android.resource://com.aaosmusic/drawable/`.
+ *   `android.resource://com.dverba.aaosmusic/drawable/`.
  */
 class FakeMusicProvider(
     artworkBaseUri: String,

@@ -12,7 +12,7 @@ import base64, http.server, json, os, subprocess, sys, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PORT = 8765
-ACTIVITY = "com.aaosmusic/.ui.AppleMusicTestActivity"
+ACTIVITY = "com.dverba.aaosmusic/com.aaosmusic.ui.AppleMusicTestActivity"
 EXTRA = "com.aaosmusic.extra.USER_TOKEN"
 ADB = os.path.expanduser("~/Library/Android/sdk/platform-tools/adb")
 

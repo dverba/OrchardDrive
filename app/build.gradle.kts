@@ -49,6 +49,10 @@ val carSigningProps: Properties? = rootProject.file("secrets/car-signing.propert
     ?.let { f -> Properties().apply { f.inputStream().use { load(it) } } }
 
 val appleSdkAars = fileTree("libs/apple") { include("*.aar") }
+
+fun gitCommitCount(): Int = runCatching {
+    providers.exec { commandLine("git", "rev-list", "--count", "HEAD") }.standardOutput.asText.get().trim().toInt()
+}.getOrDefault(1)
 val appleSdkAvailable = !appleSdkAars.isEmpty
 
 // Feature flags. Override per build with e.g. `./gradlew assembleDebug -PuseFakeProvider=false`.
@@ -60,13 +64,15 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.aaosmusic"
+        // Permanent on Google Play. The Kotlin package/namespace stays com.aaosmusic.
+        applicationId = "com.dverba.aaosmusic"
         // Android 10 (first AAOS release with Google Automotive Services). The Polestar 4 runs a newer
         // release, so this leaves headroom without pulling in features the car lacks.
         minSdk = 29
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        // Every Play upload needs a higher versionCode: use the git commit count.
+        versionCode = gitCommitCount()
+        versionName = "0.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -157,6 +163,14 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+}
+
+/** `./gradlew carBundle` → dist/AAOSMusic-car-<version>.aab for Google Play (internal testing). */
+tasks.register<Copy>("carBundle") {
+    dependsOn("bundleCar")
+    from(layout.buildDirectory.dir("outputs/bundle/car")) { include("*.aab") }
+    into(rootProject.layout.projectDirectory.dir("dist"))
+    rename { "AAOSMusic-car-${android.defaultConfig.versionName}-${android.defaultConfig.versionCode}.aab" }
 }
 
 /** `./gradlew carApk` → dist/AAOSMusic-car-<version>.apk, ready to copy to a USB stick. */

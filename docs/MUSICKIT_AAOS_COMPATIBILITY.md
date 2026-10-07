@@ -131,7 +131,7 @@ emulator on Apple silicon).
 > the emulator's macOS audio passthrough, not MusicKit. Judge quality on real hardware.
 >
 > Lesson: "track started" is not "audible". Use the meter (Apple Music Test → *Measure output*;
-> `adb shell pm grant com.aaosmusic android.permission.RECORD_AUDIO` first) plus a human listen.
+> `adb shell pm grant com.dverba.aaosmusic android.permission.RECORD_AUDIO` first) plus a human listen.
 
 `CatalogPlaybackQueueItemProvider` with song `697195462` ("One More Time"):
 - `STOPPED → PLAYING`, duration **320357 ms** (full track, not the 30 s preview).

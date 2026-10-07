@@ -52,7 +52,7 @@ class MainActivity : ComponentActivity() {
             column.addView(AppleAccountView(this, app.appleTokens, lifecycleScope))
         } else {
             column.addView(TextView(this).apply {
-                text = "Apple Music Test"
+                text = getString(com.aaosmusic.R.string.app_name)
                 textSize = 32f
                 setTypeface(typeface, Typeface.BOLD)
             })

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF4E64"/><stop offset="1" stop-color="#9B1030"/></linearGradient></defs>
+  <rect width="1024" height="500" fill="url(#g)"/>
+  <g transform="translate(70 120) scale(10.5)" fill="#fff"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></g>
+  <text x="360" y="215" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="78" font-weight="700" fill="#fff">AAOSMusic</text>
+  <text x="362" y="280" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="40" fill="#fff" fill-opacity="0.92">for Apple Music</text>
+  <text x="362" y="350" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="28" fill="#fff" fill-opacity="0.8">Your Apple Music library on Android Automotive</text>
+</svg>

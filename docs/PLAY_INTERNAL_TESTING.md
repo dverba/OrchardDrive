@@ -1,0 +1,106 @@
+# Google Play internal testing (getting the app onto the Polestar)
+
+Sideloading is blocked on Google's AAOS build (see POLESTAR_TESTING.md), so the car installs from Play.
+Internal testing: up to 100 testers you invite, available within minutes, **no Android Automotive quality
+review** (that only applies to production) ([Distribute to cars](https://developer.android.com/training/cars/distribute)).
+
+## What's ready in this repo
+
+| Item | Location |
+|---|---|
+| App bundle | `./gradlew carBundle` → `dist/AAOSMusic-car-<version>-<code>.aab` (version code = git commit count, so each build is uploadable) |
+| Upload key | `secrets/car-release.jks` + `secrets/car-signing.properties` (git-ignored; **back up**) |
+| Package name | `com.dverba.aaosmusic` (permanent) |
+| App icon 512×512 | `store/icon-512.png` |
+| Feature graphic 1024×500 | `store/feature-graphic-1024x500.png` |
+| Car screenshots (1920×1200) | `store/screenshots/*.png` (fake demo library) |
+| Privacy policy | https://dverba.github.io/aaosmusic-signin/privacy.html |
+
+Target API 35 meets Play's Automotive minimum (API 35 from 31 Aug 2026; phones need 36). The 64-bit
+native libraries are 64 KB-aligned, which satisfies Play's 16 KB page-size rule.
+
+## Steps
+
+### 1. Developer account (one-time)
+1. https://play.google.com/console/signup → **Yourself** (personal) → pay the one-time $25.
+2. Complete identity verification (can take a day or more). Personal accounts need a 12-tester, 14-day
+   *closed* test before going to **production**. That rule doesn't apply to **internal** testing.
+
+### 2. Create the app
+**Home → Create app**
+- App name: `AAOSMusic for Apple Music`
+- Default language: English (US) · App · Free
+- Accept the declarations.
+
+### 3. Add the Android Automotive OS form factor
+**Test and release → Setup → Advanced settings → Form factors → + Add form factor → Android Automotive OS**
+- Accept the Android Automotive OS review policy (production only; internal isn't reviewed).
+- Automotive screenshots go in the store listing (step 4), under the Android Automotive OS tab.
+
+### 4. Store listing (Grow users → Store presence → Main store listing)
+- **Short description** (≤80):
+  `Play your Apple Music library on Android Automotive. Independent, unofficial player.`
+- **Full description:**
+  ```
+  AAOSMusic is an independent player that brings your Apple Music library to cars running Android
+  Automotive OS, using the car's built-in media screen and steering-wheel controls.
+
+  • Your library: playlists, artists, albums and songs, with A–Z browsing for large libraries
+  • Recently played and personal recommendations
+  • Catalog search
+  • Sign in once by scanning a QR code with your phone. No typing in the car.
+  • Resumes where you left off
+
+  Requires an active Apple Music subscription. Uploaded or iCloud-only tracks aren't supported.
+
+  AAOSMusic is not affiliated with, endorsed by, or sponsored by Apple Inc. Apple and Apple Music are
+  trademarks of Apple Inc.
+  ```
+- App icon: `store/icon-512.png` · Feature graphic: `store/feature-graphic-1024x500.png`
+- Phone screenshots: Play may insist on at least 2 even for a car-only app; reuse the car screenshots if so.
+- **Android Automotive OS screenshots:** `store/screenshots/01-home.png` … `05-now-playing.png`.
+
+### 5. App content (Policy → App content)
+- **Privacy policy:** `https://dverba.github.io/aaosmusic-signin/privacy.html`
+- **Ads:** No ads.
+- **App access:** "All or some functionality is restricted". Instructions: *Requires an Apple Music
+  subscription. Sign in by scanning the QR code shown in the app's settings with a phone.*
+- **Content rating:** questionnaire → category *Music/Audio streaming*, no violence etc. Note that streamed
+  music may contain explicit lyrics.
+- **Target audience:** 18 and over.
+- **Data safety:**
+  - Data collected: **App info and performance → Crash logs, Diagnostics**: collected, *optional* (only
+    when the user taps Send debug report), purpose *App functionality / Analytics*, not shared.
+  - Authentication token: stored on device, and passes through the developer's relay only transiently during
+    sign-in (deleted within 5 minutes). Declare under *Personal info → Other info* if the form asks
+    about transient processing; otherwise not "collected".
+  - Encrypted in transit: Yes. Users can request deletion: Yes (by email).
+- **News app / COVID / Government / Financial features:** No.
+
+### 6. Internal testing release
+**Test and release → Testing → Internal testing**
+1. **Testers** tab → create an email list containing the **Google account signed in to the car's Play
+   Store** → Save → copy the **opt-in link**.
+2. **Create new release** → Play App Signing: accept *Use Google-generated key* (our `car-release.jks` becomes
+   the upload key) → upload `dist/AAOSMusic-car-*.aab` → release name e.g. `0.2.0 (15)` → notes → **Save →
+   Review → Start rollout to Internal testing**.
+
+### 7. Install in the car
+1. On a phone or computer, signed in with the **same Google account as the car**, open the opt-in link
+   → **Accept** (become a tester).
+2. In the car's Play Store, search `AAOSMusic` (tester-only apps can take a few minutes to show up), or use
+   the "Download it on Google Play" link from the opt-in page in a desktop browser and choose the car as the
+   install target if it's offered.
+3. Then follow the test sequence in `POLESTAR_TESTING.md` (from step 2).
+
+### Updates
+Commit, then `./gradlew carBundle` (version code rises with the commit count) → Internal testing → Create new
+release → upload. The car updates via Play like any other app.
+
+## Gotchas
+- **Upload key:** losing `car-release.jks` means asking Google support for an upload key reset (possible with
+  Play App Signing, but slow). Back it up.
+- **Version code:** derived from `git rev-list --count HEAD`. Commit before building, and never rewrite pushed
+  history, or the code could go backwards.
+- **Policy:** "for Apple Music" naming plus the disclaimer is the conventional, safe form. A production
+  release would get a stricter review than internal testing.

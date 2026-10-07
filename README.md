@@ -22,10 +22,10 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 # Open the app in AAOS Media Center
 adb shell am start -a android.car.intent.action.MEDIA_TEMPLATE \
-  --es android.car.intent.extra.MEDIA_COMPONENT com.aaosmusic/.automotive.AutomotiveMusicService
+  --es android.car.intent.extra.MEDIA_COMPONENT com.dverba.aaosmusic/com.aaosmusic.automotive.AutomotiveMusicService
 
 # Debug/settings screen (also reachable from the gear icon in Media Center)
-adb shell am start -n com.aaosmusic/.ui.MainActivity
+adb shell am start -n com.dverba.aaosmusic/com.aaosmusic.ui.MainActivity
 
 # Logs
 adb logcat -s AAOSMusic/PLAYBACK AAOSMusic/AAOS_LIBRARY AAOSMusic/MEDIA_SESSION AAOSMusic/APP

@@ -20,7 +20,7 @@ credential inside: the developer token comes from the relay, so the relay's Appl
 > **Finding (2026-10-07):** on Google's AAOS build, sideloading through a file manager dead-ends. The system
 > installer asks you to allow the file manager as an unknown source, but its **Settings** button opens a
 > stub ("Manage Unknown App Sources is not supported on this device") and returns to the previous
-> screen. Reproduced on the emulator with `adb shell am start -n com.aaosmusic/.debug.InstallProbeActivity`
+> screen. Reproduced on the emulator with `adb shell am start -n com.dverba.aaosmusic/com.aaosmusic.debug.InstallProbeActivity`
 > (debug builds). The first in-car attempt with AnExplorer ended the same way. Unless the Polestar's own
 > Settings has an "Install unknown apps" toggle for the file manager, installing needs adb or Google Play
 > (internal testing).

@@ -33,7 +33,7 @@ import java.util.Locale
  * deliberately separate from the production media flow.
  *
  * In debug builds a Music User Token can be injected for testing:
- * `adb shell am start -n com.aaosmusic/.ui.AppleMusicTestActivity --es com.aaosmusic.extra.USER_TOKEN '<token>'`
+ * `adb shell am start -n com.dverba.aaosmusic/com.aaosmusic.ui.AppleMusicTestActivity --es com.aaosmusic.extra.USER_TOKEN '<token>'`
  * (tools/musickit_token.py does this for you).
  */
 class AppleMusicTestActivity : ComponentActivity() {
@@ -214,7 +214,7 @@ class AppleMusicTestActivity : ComponentActivity() {
     /**
      * Peak level of the mixed audio output over 5 s, via a Visualizer on the output mix (session 0).
      * -9600 mB is digital silence. Debug builds only (needs RECORD_AUDIO, grant with
-     * `adb shell pm grant com.aaosmusic android.permission.RECORD_AUDIO`).
+     * `adb shell pm grant com.dverba.aaosmusic android.permission.RECORD_AUDIO`).
      */
     private fun measureOutput() {
         val viz = runCatching {

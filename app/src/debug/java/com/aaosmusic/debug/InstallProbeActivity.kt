@@ -10,7 +10,7 @@ import java.io.File
 /**
  * Debug-only: hands this app's own APK to the system installer exactly like a file manager does
  * (ACTION_VIEW + content URI), to see what AAOS does with sideload requests.
- * adb shell am start -n com.aaosmusic/.debug.InstallProbeActivity
+ * adb shell am start -n com.dverba.aaosmusic/com.aaosmusic.debug.InstallProbeActivity
  */
 class InstallProbeActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -59,7 +59,7 @@ adb exec-out screencap -p -d <id> > screen.png
 
 # Open our source directly in Media Center
 adb shell am start -a android.car.intent.action.MEDIA_TEMPLATE \
-  --es android.car.intent.extra.MEDIA_COMPONENT com.aaosmusic/.automotive.AutomotiveMusicService
+  --es android.car.intent.extra.MEDIA_COMPONENT com.dverba.aaosmusic/com.aaosmusic.automotive.AutomotiveMusicService
 
 # Simulate steering-wheel media buttons
 adb shell input keyevent KEYCODE_MEDIA_PLAY_PAUSE
@@ -82,6 +82,6 @@ adb shell dumpsys media_session | grep -A20 com.aaosmusic
   (seen after an audioserver restart). Cold boot: `adb emu kill`, then start with `-no-snapshot-load`.
 - **Check whether there's actually signal:** debug builds include *Measure output* on the Apple Music
   Test screen (Visualizer on the output mix; −96 dBFS = silence). Grant first:
-  `adb shell pm grant com.aaosmusic android.permission.RECORD_AUDIO`.
+  `adb shell pm grant com.dverba.aaosmusic android.permission.RECORD_AUDIO`.
 - **Crackly sound on macOS:** emulator passthrough limitation. If
   `adb shell dumpsys media.audio_flinger | grep underrun` shows few underruns, the guest side is fine.
