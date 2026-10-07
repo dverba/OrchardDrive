@@ -108,6 +108,12 @@ Commit, then `./gradlew carBundle` (version code rises with the commit count) �
 release → upload. The car updates via Play like any other app.
 
 ## Gotchas
+- **"APKs and bundles must not require following features: android.hardware.type.automotive… only in
+  dedicated tracks"**: you're on the *phone* internal-testing track. Discard the draft and create the release
+  on the **Android Automotive OS** internal-testing track (form-factor selector at the top of Testing, or
+  the Form factors checklist link). Reuse the uploaded bundle via **Add from library**.
+- **Warnings about deobfuscation files / native debug symbols**: safe to ignore. R8 is off, and Apple's
+  MusicKit `.so` files ship without symbols.
 - **Upload key:** losing `car-release.jks` means asking Google support for an upload key reset (possible with
   Play App Signing, but slow). Back it up.
 - **Version code:** derived from `git rev-list --count HEAD`. Commit before building, and never rewrite pushed
