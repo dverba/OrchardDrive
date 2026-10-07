@@ -1,0 +1,16 @@
+# Gradle / Android Studio
+.gradle/
+build/
+/local.properties
+.idea/
+*.iml
+.DS_Store
+captures/
+.externalNativeBuild/
+.cxx/
+.kotlin/
+
+# Apple Music secrets — never commit
+apple-music.properties
+*.p8
+secrets/
