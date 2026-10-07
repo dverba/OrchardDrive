@@ -54,7 +54,7 @@
             tools:ignore="ExportedContentProvider" />
 
         <!--
-            Parked-only settings/account/debug screen. AAOS media apps don't get a regular launcher
+            Parked-only settings screen (account, display, about). AAOS media apps don't get a regular launcher
             entry; Media Center opens this via APPLICATION_PREFERENCES (gear icon) and the session
             activity. Launch manually with:
             adb shell am start -n com.dverba.aaosmusic/com.aaosmusic.ui.MainActivity
@@ -68,6 +68,12 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <!-- Diagnostics (status, debug report); unlocked by tapping Settings → Version 7 times. -->
+        <activity
+            android:name=".ui.DiagnosticsActivity"
+            android:exported="false"
+            android:label="Diagnostics" />
 
         <!-- Debug-only MusicKit compatibility test screen (docs/MUSICKIT_AAOS_COMPATIBILITY.md). -->
         <activity

@@ -49,8 +49,8 @@ Stop at the first failure, send a debug report, and note the report ID.
 | 11 | Voice | "Hey Google, play Daft Punk on Apple Music Test" |
 | 12 | Search | Search icon → type a query → results → play |
 
-After the run (or at any failure): car settings for the app (gear icon in Media) → **Send debug report** →
-note the ID shown.
+After the run (or at any failure): car settings for the app (gear icon in Media) → tap **Version** 7 times
+(once; it stays unlocked) → **Diagnostics** → **Send debug report** → note the ID shown.
 
 ## What to record
 

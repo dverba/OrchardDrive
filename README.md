@@ -62,7 +62,8 @@ app/src/applesdk/                 MusicKit-dependent code (AppleMusicPlayer); co
 app/src/noapplesdk/               stub used when the AARs are absent
   automotive/ArtworkProvider.kt   content:// proxy for remote artwork (Media Center needs it)
   repository/MusicRepository.kt   provider facade; future cache layer
-  ui/MainActivity.kt              parked-only settings/debug screen
+  ui/MainActivity.kt              parked-only settings screen (account, display, about)
+  ui/DiagnosticsActivity.kt       status, debug report, test tools (Settings → tap Version 7 times)
   util/AppLog.kt                  structured logging + token redaction
 tools/gen_artwork.py              regenerates placeholder artwork
 ```

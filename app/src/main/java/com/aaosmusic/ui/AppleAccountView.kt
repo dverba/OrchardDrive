@@ -1,6 +1,7 @@
 package com.aaosmusic.ui
 
 import android.content.Context
+import android.graphics.Color
 import android.graphics.Typeface
 import android.view.Gravity
 import android.view.View
@@ -38,7 +39,7 @@ class AppleAccountView(
     private val qrSize = (300 * dp).toInt()
 
     private val qr = ImageView(context).apply { layoutParams = LayoutParams(qrSize, qrSize) }
-    private val heading = TextView(context).apply { textSize = 30f; setTypeface(typeface, Typeface.BOLD) }
+    private val heading = TextView(context).apply { textSize = 30f; setTextColor(Color.WHITE); setTypeface(typeface, Typeface.BOLD) }
     private val body = TextView(context).apply { textSize = 20f; setPadding(0, (8 * dp).toInt(), 0, 0) }
     private val code = TextView(context).apply {
         textSize = 40f
@@ -49,6 +50,12 @@ class AppleAccountView(
     private val status = TextView(context).apply { textSize = 18f; setPadding(0, (8 * dp).toInt(), 0, (16 * dp).toInt()) }
     private val primary = Button(context).apply { textSize = 20f }
 
+    // Text sits beside the QR code; without it, it lines up with the rest of the settings.
+    private val text = LinearLayout(context).apply {
+        orientation = VERTICAL
+        listOf(heading, body, code, status, primary).forEach(::addView)
+    }
+
     private var job: Job? = null
     private val onTokenChanged: () -> Unit = { post { if (!isWaiting()) render() } }
 
@@ -57,11 +64,13 @@ class AppleAccountView(
         gravity = Gravity.CENTER_VERTICAL
         setPadding(0, (8 * dp).toInt(), 0, (24 * dp).toInt())
         addView(qr)
-        addView(LinearLayout(context).apply {
-            orientation = VERTICAL
-            setPadding((32 * dp).toInt(), 0, 0, 0)
-            listOf(heading, body, code, status, primary).forEach(::addView)
-        })
+        addView(text)
+    }
+
+    private fun showQr(visible: Boolean) {
+        qr.visibility = if (visible) View.VISIBLE else View.GONE
+        code.visibility = qr.visibility
+        text.setPadding(if (visible) (32 * dp).toInt() else 0, 0, 0, 0)
     }
 
     override fun onAttachedToWindow() {
@@ -82,16 +91,14 @@ class AppleAccountView(
 
     private fun render() {
         if (tokens.userToken != null) {
-            qr.visibility = View.GONE
-            code.visibility = View.GONE
+            showQr(false)
             heading.text = "Apple Music connected"
             body.text = "Your library, playlists and recommendations are available in Media."
             status.text = ""
             primary.text = "Sign out"
             primary.setOnClickListener { tokens.userToken = null; startSignIn() }
         } else if (!isWaiting()) {
-            qr.visibility = View.GONE
-            code.visibility = View.GONE
+            showQr(false)
             heading.text = "Connect Apple Music"
             body.text = "Sign in with your phone to play your Apple Music library in the car."
             primary.text = "Sign in"
@@ -112,9 +119,8 @@ class AppleAccountView(
 
                 val session = relay.start(tokens.developerToken)
                 qr.setImageBitmap(qrBitmap(relay.pageUrlFor(session), qrSize))
-                qr.visibility = View.VISIBLE
                 code.text = session.displayCode
-                code.visibility = View.VISIBLE
+                showQr(true)
 
                 var nextPoll = 0L
                 while (true) {
@@ -141,16 +147,14 @@ class AppleAccountView(
                     }
                     delay(1_000)
                 }
-                qr.visibility = View.GONE
-                code.visibility = View.GONE
+                showQr(false)
                 status.text = "That code expired."
                 primary.text = "Get a new code"
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 AppLog.e(AUTH, "QR sign-in failed", e)
-                qr.visibility = View.GONE
-                code.visibility = View.GONE
+                showQr(false)
                 status.text = "Couldn't reach the sign-in service. Check the car's internet connection."
                 primary.text = "Try again"
             }
