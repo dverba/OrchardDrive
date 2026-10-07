@@ -70,6 +70,11 @@ android {
         buildConfigField("boolean", "ENABLE_APPLE_AUTH", flag("enableAppleAuth", false))
         buildConfigField("boolean", "ENABLE_APPLE_PLAYBACK", flag("enableApplePlayback", false))
         buildConfigField("boolean", "APPLE_SDK_AVAILABLE", appleSdkAvailable.toString())
+        // QR sign-in relay (relay/ in this repo). Override with -PsigninRelayUrl / -PsigninPageUrl.
+        buildConfigField("String", "SIGNIN_RELAY_URL", "\"${project.findProperty("signinRelayUrl")
+            ?: "https://tlrznrkphtyhuzvsjfis.supabase.co/functions/v1/signin"}\"")
+        buildConfigField("String", "SIGNIN_PAGE_URL", "\"${project.findProperty("signinPageUrl")
+            ?: "https://dverba.github.io/aaosmusic-signin/"}\"")
     }
 
     // Apple's MusicKit for Android SDK can't be committed, so code that touches it lives in its own
@@ -115,6 +120,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.guava)
     implementation(libs.guava)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.zxing.core)
     if (appleSdkAvailable) {
         implementation(appleSdkAars)
         // Local AARs carry no POM, so add what they need by hand: the auth SDK's themes extend AppCompat.

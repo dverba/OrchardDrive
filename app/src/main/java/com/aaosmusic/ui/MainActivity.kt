@@ -10,6 +10,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
@@ -22,8 +23,8 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 
 /**
- * Parked-mode account/settings screen. For now it's the debug screen: environment, provider and
- * MediaSession state, plus a few playback actions. It connects to the service as an ordinary
+ * Parked-mode account/settings screen: Apple Music sign-in (QR) when the Apple provider is active,
+ * then debug info (environment, provider, MediaSession state) and a few playback actions. It connects to the service as an ordinary
  * MediaController, exactly like AAOS does, so it never owns playback.
  */
 class MainActivity : ComponentActivity() {
@@ -44,11 +45,16 @@ class MainActivity : ComponentActivity() {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad, pad, pad)
         }
-        column.addView(TextView(this).apply {
-            text = "Apple Music Test"
-            textSize = 32f
-            setTypeface(typeface, Typeface.BOLD)
-        })
+        val app = application as AAOSMusicApp
+        if (app.repository.providerName == "apple") {
+            column.addView(AppleAccountView(this, app.appleTokens, lifecycleScope))
+        } else {
+            column.addView(TextView(this).apply {
+                text = "Apple Music Test"
+                textSize = 32f
+                setTypeface(typeface, Typeface.BOLD)
+            })
+        }
         status = TextView(this).apply {
             textSize = 20f
             typeface = Typeface.MONOSPACE
