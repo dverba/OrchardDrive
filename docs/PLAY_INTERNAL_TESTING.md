@@ -47,7 +47,7 @@ Play then shows a three-item checklist under *Android Automotive OS* (as of Oct 
 
 ### 4. Store listing (Grow users → Store presence → Main store listing)
 - **Short description** (≤80):
-  `Play your Apple Music library on Android Automotive. Independent, unofficial player.`
+  `Your Apple Music library on Android Automotive. Unofficial, independent player.` (79 chars)
 - **Full description:**
   ```
   AAOSMusic is an independent player that brings your Apple Music library to cars running Android
@@ -65,7 +65,8 @@ Play then shows a three-item checklist under *Android Automotive OS* (as of Oct 
   trademarks of Apple Inc.
   ```
 - App icon: `store/icon-512.png` · Feature graphic: `store/feature-graphic-1024x500.png`
-- Phone screenshots: Play may insist on at least 2 even for a car-only app; reuse the car screenshots if so.
+- **Phone screenshots: required (at least 2)**, even for a car-only app. Use `store/screenshots/` (16:10), or
+  `store/screenshots-16x9/` (same images padded to 16:9) if Play rejects the aspect ratio.
 - **Android Automotive OS screenshots:** `store/screenshots/01-home.png` … `05-now-playing.png`.
 
 ### 5. App content (Policy → App content)
