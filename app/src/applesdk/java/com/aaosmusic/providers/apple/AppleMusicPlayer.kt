@@ -167,6 +167,9 @@ class AppleMusicPlayer(
     override fun handlePrepare(): ListenableFuture<*> {
         prepareRequested = true
         error = null
+        // AAOS prepares an empty player when Media Center connects; that's not a request to play,
+        // so it mustn't surface "sign in" / "not ready" player errors.
+        if (playlist.isEmpty()) return done()
         if (ensureController() == null) return done()
         if (!queueLoaded) loadQueue()
         return done()
