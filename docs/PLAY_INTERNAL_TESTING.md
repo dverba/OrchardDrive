@@ -118,6 +118,12 @@ release → upload. The car updates via Play like any other app.
   dedicated tracks"**: the release is on the *phone* track. Discard the draft, enable the dedicated
   Automotive track (step 3), then create the release on the **Android Automotive OS** internal-testing
   track. Reuse the uploaded bundle via **Add from library**. Dedicated tracks have their **own tester lists**.
+- **"Item not found" in the car's Play Store**, in order of likelihood: (1) opt-in link copied from the
+  *phone* track: use the link from the **Automotive** internal track's Testers tab, with the email list ticked
+  and saved; (2) invite not yet accepted: open the link in a **browser** on a phone/computer signed in with
+  the car's Google account and accept; (3) the car's Play Store uses a different Google account than the
+  tester list; (4) release still processing: wait for *Available to internal testers* (a new app's first
+  release can take hours). Then search "AAOSMusic" in the car, or restart the Play Store/infotainment.
 - **Warnings about deobfuscation files / native debug symbols**: safe to ignore. R8 is off, and Apple's
   MusicKit `.so` files ship without symbols.
 - **Upload key:** losing `car-release.jks` means asking Google support for an upload key reset (possible with
