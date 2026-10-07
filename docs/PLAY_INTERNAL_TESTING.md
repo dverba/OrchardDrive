@@ -34,8 +34,16 @@ native libraries are 64 KB-aligned, which satisfies Play's 16 KB page-size rule.
 
 ### 3. Add the Android Automotive OS form factor
 **Test and release → Setup → Advanced settings → Form factors → + Add form factor → Android Automotive OS**
-- Accept the Android Automotive OS review policy (production only; internal isn't reviewed).
-- Automotive screenshots go in the store listing (step 4), under the Android Automotive OS tab.
+
+Play then shows a three-item checklist under *Android Automotive OS* (as of Oct 2026):
+1. *Upload Android Automotive OS screenshots (optional)*: done in step 4.
+2. *Release an Android Automotive OS app bundle or APK to a testing track ›*: done in step 6. Use this
+   link, because car releases go to **dedicated Android Automotive OS tracks**, separate from the phone tracks.
+3. *Agree to review policy* (locked until a car release exists): accept it then. It's needed for production;
+   internal testing isn't quality-reviewed.
+
+*Android XR: Active* shows by default. It's irrelevant here, because the manifest requires
+`android.hardware.type.automotive`, so Play won't offer the app to other device types.
 
 ### 4. Store listing (Grow users → Store presence → Main store listing)
 - **Short description** (≤80):
@@ -78,7 +86,8 @@ native libraries are 64 KB-aligned, which satisfies Play's 16 KB page-size rule.
 - **News app / COVID / Government / Financial features:** No.
 
 ### 6. Internal testing release
-**Test and release → Testing → Internal testing**
+From the Form factors checklist link (step 3, item 2), or **Test and release → Testing → Internal testing**
+with the **Android Automotive OS** form factor/track selected, not the phone one.
 1. **Testers** tab → create an email list containing the **Google account signed in to the car's Play
    Store** → Save → copy the **opt-in link**.
 2. **Create new release** → Play App Signing: accept *Use Google-generated key* (our `car-release.jks` becomes
