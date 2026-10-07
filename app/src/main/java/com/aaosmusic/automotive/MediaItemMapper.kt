@@ -1,13 +1,33 @@
 package com.aaosmusic.automotive
 
+import android.net.Uri
 import android.os.Bundle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.session.MediaConstants
+import com.aaosmusic.BuildConfig
 import com.aaosmusic.media.models.Song
 
 /** Converts browse-tree nodes and songs into Media3 [MediaItem]s. */
 object MediaItemMapper {
+
+    /**
+     * Icons for the fixed folders: tab icons for Home/Library, row artwork for the categories.
+     * Media Center resolves these by name; a numeric android.resource://pkg/<id> URI crashes it.
+     */
+    private val folderIcons = mapOf(
+        MediaIds.HOME to "ic_folder_home",
+        MediaIds.LIBRARY to "ic_folder_library",
+        MediaIds.RECENT to "ic_folder_recent",
+        MediaIds.RECOMMENDED to "ic_folder_recommended",
+        MediaIds.PLAYLISTS to "ic_folder_playlists",
+        MediaIds.ARTISTS to "ic_folder_artists",
+        MediaIds.ALBUMS to "ic_folder_albums",
+        MediaIds.SONGS to "ic_folder_songs",
+    )
+
+    private fun folderIconUri(mediaId: String): Uri? =
+        folderIcons[mediaId]?.let { Uri.parse("android.resource://${BuildConfig.APPLICATION_ID}/drawable/$it") }
 
     fun toMediaItem(node: BrowseNode): MediaItem {
         node.song?.let { song -> return toPlayableItem(song, node.mediaId) }
@@ -38,7 +58,7 @@ object MediaItemMapper {
             .setTitle(node.title)
             .setSubtitle(node.subtitle)
             .setArtist(if (node.kind == BrowseNode.Kind.ALBUM) node.subtitle else null)
-            .setArtworkUri(ArtworkProvider.toContentUri(node.artworkUri))
+            .setArtworkUri(ArtworkProvider.toContentUri(node.artworkUri) ?: folderIconUri(node.mediaId))
             .setIsBrowsable(node.browsable)
             .setIsPlayable(node.playable)
             .setMediaType(

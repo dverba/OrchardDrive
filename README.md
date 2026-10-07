@@ -93,7 +93,6 @@ Design notes: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - Plain AOSP AAOS image (only the Google Play image tested so far).
 - Playback resumption returns a fixed queue; real last-queue/position persistence is TODO.
 - Album title is set in metadata but AAOS Now Playing on this image only shows title + artist.
-- Category folders (Recently Played, Playlists, …) have no icons.
 - Test audio streams from soundhelix.com, so the emulator needs network.
 
 ### Apple Music provider (verified on emulator, 2026-10-07)
