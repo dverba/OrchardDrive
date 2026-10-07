@@ -22,6 +22,20 @@ Not started. Record each experiment (date, image, result, logs) under the tests 
 5. **Distribution/ToS:** personal use is one thing; publishing an Apple Music client on Play
    needs a check of Apple's MusicKit terms.
 
+## Prior art (2026-10-07)
+
+- **Automus** (`com.lindehammarkonsult.automus`, Play Store, third-party): signs in with a
+  **QR code** — the car shows a code, the user completes Apple sign-in on their phone "via Apple's
+  official servers", no password typed in the car. Session, queue and resume persist. Library,
+  playlists, recommendations, full queue work; iTunes Match / uploaded tracks have limited support.
+  This matches fallback (1) above: MusicKit JS authorization on the phone → Music User Token
+  relayed to the car. How it plays DRM audio is unknown (MusicKit Android playback lib fed the
+  relayed token vs. MusicKit JS/Widevine in a WebView) — the key question to answer next.
+  ([Xataka Móvil](https://www.xatakamovil.com/aplicaciones/apple-music-no-tiene-app-oficial-para-android-automotive-esta-alternativa-ha-hecho-que-no-eche-coche))
+- **Official Apple Music for AAOS** launched July 2026, **Volvo-only** (EX60 preinstalled, EX90/ES90
+  later). Unclear whether other AAOS cars (e.g. Polestar) will get it.
+  ([mobiflip](https://www.mobiflip.de/apple-music-kommt-ins-auto-app-fuer-android-automotive-startet/))
+
 ## Test 1 — MusicKit initializes under AAOS
 ## Test 2 — User can authenticate
 ## Test 3 — Music User Token obtained / stored / reused
