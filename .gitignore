@@ -14,3 +14,5 @@ captures/
 apple-music.properties
 *.p8
 secrets/
+# Apple MusicKit for Android SDK (Apple license; do not redistribute)
+app/libs/apple/
