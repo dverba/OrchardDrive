@@ -31,6 +31,25 @@ $SDK/emulator/emulator -avd AAOS_API34_Play
 
 Or Device Manager → Create Virtual Device → Automotive category.
 
+## Polestar 4-sized AVD
+
+`Polestar4_API34` matches the Polestar 4 centre display: 15.6" landscape, 1920×1200. Physical density is
+√(1920²+1200²)/15.6 ≈ 145 ppi, so it uses the nearest standard bucket, 160 dpi. The car's real
+density is unconfirmed: the in-car **Send debug report** records every display's size and density, so
+adjust `hw.lcd.density` if the car reports something else.
+
+```bash
+avdmanager create avd -n Polestar4_API34 \
+  -k "system-images;android-34-ext9;android-automotive-playstore;arm64-v8a" \
+  -d automotive_1408p_landscape_with_play
+# then in ~/.android/avd/Polestar4_API34.avd/config.ini:
+#   hw.lcd.width=1920  hw.lcd.height=1200  hw.lcd.density=160  hw.initialOrientation=landscape
+#   skin.name=1920x1200  skin.path=_no_skin  hw.ramSize=4096  disk.dataPartition.size=6G
+emulator -avd Polestar4_API34
+```
+
+The car's Android version is also unconfirmed (API 34 is assumed); create a matching image once known.
+
 ## Useful commands
 
 ```bash

@@ -53,6 +53,7 @@ object DebugReport {
         appendLine("Android    ${Build.VERSION.RELEASE} API ${Build.VERSION.SDK_INT}, ${Build.FINGERPRINT}")
         appendLine("ABIs       ${Build.SUPPORTED_ABIS.joinToString()}")
         appendLine("Page size  ${runCatching { android.system.Os.sysconf(android.system.OsConstants._SC_PAGESIZE) }.getOrNull()}")
+        appendLine("Displays   ${displays(app)}")
         appendLine("Provider   ${a.repository.providerName}")
         appendLine("Flags      fake=${BuildConfig.USE_FAKE_PROVIDER} appleAuth=${BuildConfig.ENABLE_APPLE_AUTH} " +
             "applePlayback=${BuildConfig.ENABLE_APPLE_PLAYBACK} sdk=${BuildConfig.APPLE_SDK_AVAILABLE}")
@@ -94,6 +95,15 @@ object DebugReport {
             conn.disconnect()
         }
     }
+
+    /** Every display's real size and density, e.g. to match the emulator to the car's screen. */
+    private fun displays(context: Context): String = runCatching {
+        val dm = context.getSystemService(android.hardware.display.DisplayManager::class.java)
+        dm.displays.joinToString(" | ") { d ->
+            val m = android.util.DisplayMetrics().also { @Suppress("DEPRECATION") d.getRealMetrics(it) }
+            "#${d.displayId} ${d.name}: ${m.widthPixels}x${m.heightPixels} @ ${m.densityDpi}dpi (xdpi ${"%.0f".format(m.xdpi)})"
+        }
+    }.getOrElse { "unavailable: $it" }
 
     /** This process's own logcat (apps may read their own logs without permissions). */
     private fun processLogcat(): String = runCatching {

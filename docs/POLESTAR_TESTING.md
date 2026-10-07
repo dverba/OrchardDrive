@@ -47,6 +47,7 @@ note the ID shown.
 ## What to record
 
 - Car software version and Android version (Settings → About / System), whether developer options exist
+- The first debug report's `Displays` line (real resolution/density, used to tune the Polestar AVD)
 - Each step: pass/fail, and any on-screen error text
 - Sound quality on the car speakers (the emulator's audio is not representative)
 - Debug report IDs
