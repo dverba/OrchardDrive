@@ -32,6 +32,20 @@ Not started. Record each experiment (date, image, result, logs) under the tests 
   relayed to the car. How it plays DRM audio is unknown (MusicKit Android playback lib fed the
   relayed token vs. MusicKit JS/Widevine in a WebView) — the key question to answer next.
   ([Xataka Móvil](https://www.xatakamovil.com/aplicaciones/apple-music-no-tiene-app-oficial-para-android-automotive-esta-alternativa-ha-hecho-que-no-eche-coche))
+  - From its [privacy policy](https://automus.se/automus-privacy-policy.html) and [site/FAQ](https://automus.se):
+    - Own backend (automus.se) holds a short-lived auth session ("deleted after 5 minutes or upon
+      successful authentication"); car polls it, receives the **Music User Token** + storefront id,
+      stores them in SharedPreferences. Developer token presumably served/signed by the backend.
+    - FAQ: sign-in page "gets stuck after I press Allow" → "try Chrome instead of Safari". The
+      Allow step and popup sensitivity match **MusicKit JS `authorize()`** on the phone page.
+    - "Some child Apple IDs do not work with this kind of sign-in."
+    - **Not compatible with older Intel-based AAOS cars** → ships ARM-only native code. Strong hint
+      playback uses **Apple's MusicKit Android playback library** (ARM-only native libs) with the
+      relayed token, not a WebView. Also "standard stereo" only — no lossless/Atmos — consistent
+      with that library.
+    - Uploaded / iTunes Match tracks unsupported (catalog streaming only).
+    - Google Assistant voice play supported (needs "on Automus" suffix sometimes).
+  - Paid ($5.49), 1K+ installs, 3.7★ (Play listing viewed on emulator 2026-10-07).
 - **Official Apple Music for AAOS** launched July 2026, **Volvo-only** (EX60 preinstalled, EX90/ES90
   later). Unclear whether other AAOS cars (e.g. Polestar) will get it.
   ([mobiflip](https://www.mobiflip.de/apple-music-kommt-ins-auto-app-fuer-android-automotive-startet/))
