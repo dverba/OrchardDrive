@@ -3,7 +3,6 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="referrer" content="no-referrer">
 <title>Connect Apple Music to your car</title>
 <style>
   :root { --accent: #fa2d48; --bg: #fff; --fg: #1d1d1f; --muted: #6e6e73; --card: #f5f5f7; }
@@ -61,6 +60,7 @@
 
   let code = clean(new URLSearchParams(location.search).get("c"));
   let musicKitReady = null;
+  let submitted = false;
 
   function loadMusicKit() {
     return musicKitReady ??= new Promise((resolve, reject) => {
@@ -83,7 +83,13 @@
       if (!r.ok) throw new Error("This code has expired. Start sign-in again in the car.");
       if (s.status === "complete") { done(); return; }
       await loadMusicKit();
-      await MusicKit.configure({ developerToken: s.developer_token, app: { name: "AAOSMusic", build: "1.0" } });
+      const mk = await MusicKit.configure({ developerToken: s.developer_token, app: { name: "AAOSMusic", build: "1.0" } });
+      // Apple may hand the token back via a reload/redirect or an event rather than resolving
+      // authorize(); catch it whichever way it arrives.
+      mk.addEventListener("authorizationStatusDidChange", () => {
+        if (mk.isAuthorized && mk.musicUserToken) submit(mk.musicUserToken);
+      });
+      if (mk.isAuthorized && mk.musicUserToken) { submit(mk.musicUserToken); return; }
       $("codeView").hidden = false;
       $("entryView").hidden = true;
       $("code").textContent = pretty(code);
@@ -104,7 +110,18 @@
       // Must run from the click so the browser allows Apple's sign-in popup.
       const userToken = await MusicKit.getInstance().authorize();
       if (!userToken) throw new Error("Sign-in was cancelled.");
-      say("Sending to your car…");
+      await submit(userToken);
+    } catch (e) {
+      say((e && e.message) || String(e) || "Sign-in failed. Try again.", "err");
+      $("go").disabled = false;
+    }
+  }
+
+  async function submit(userToken) {
+    if (submitted) return;
+    submitted = true;
+    say("Sending to your car…");
+    try {
       const r = await fetch(`${RELAY}/complete`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -113,7 +130,8 @@
       if (!r.ok) throw new Error("This code has expired or was already used. Start sign-in again in the car.");
       done();
     } catch (e) {
-      say((e && e.message) || "Sign-in failed. Try again.", "err");
+      submitted = false;
+      say(e.message, "err");
       $("go").disabled = false;
     }
   }
