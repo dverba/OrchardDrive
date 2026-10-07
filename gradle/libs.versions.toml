@@ -7,6 +7,8 @@ activity = "1.10.1"
 core = "1.16.0"
 guava = "33.4.8-android"
 junit = "4.13.2"
+serialization = "1.9.0"
+appcompat = "1.7.1"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "core" }
@@ -17,7 +19,9 @@ media3-datasource = { module = "androidx.media3:media3-datasource", version.ref 
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-guava = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-guava", version.ref = "coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
+androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
 junit = { module = "junit:junit", version.ref = "junit" }
 
 [plugins]

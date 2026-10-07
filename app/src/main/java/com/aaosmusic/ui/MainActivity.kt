@@ -72,6 +72,13 @@ class MainActivity : ComponentActivity() {
         button("Next") { it.seekToNext() }
         button("+30s") { it.seekTo(it.currentPosition + 30_000) }
         column.addView(buttons)
+        if (BuildConfig.ENABLE_DEBUG_MENU) {
+            column.addView(Button(this).apply {
+                text = "Apple Music compatibility tests"
+                textSize = 20f
+                setOnClickListener { startActivity(android.content.Intent(this@MainActivity, AppleMusicTestActivity::class.java)) }
+            })
+        }
 
         setContentView(ScrollView(this).apply { addView(column) })
         if (!BuildConfig.ENABLE_DEBUG_MENU) buttons.visibility = View.GONE

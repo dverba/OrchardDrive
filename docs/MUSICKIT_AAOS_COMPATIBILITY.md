@@ -50,8 +50,38 @@ Not started. Record each experiment (date, image, result, logs) under the tests 
   later). Unclear whether other AAOS cars (e.g. Polestar) will get it.
   ([mobiflip](https://www.mobiflip.de/apple-music-kommt-ins-auto-app-fuer-android-automotive-startet/))
 
+## SDK facts (from the AARs, 2026-10-07)
+
+- `mediaplayback-release-1.1.1.aar` (Feb 2020) and `musickitauth-release-1.1.2.aar` (Feb 2021).
+- Native code `libappleMusicSDK.so` + `libc++_shared.so` for **arm64-v8a and armeabi-v7a only**
+  (no x86/x86_64) — confirms why Automus excludes Intel AAOS cars. DRM is Apple's own
+  ("FootHill" JNI classes), not Widevine.
+- The host app must `System.loadLibrary("c++_shared")` and `System.loadLibrary("appleMusicSDK")`
+  before `MediaPlayerControllerFactory.createLocalController`, or it throws `UnsatisfiedLinkError`.
+- Playback auth is a plain `TokenProvider { getDeveloperToken(); getUserToken() }` — any valid Music
+  User Token works, regardless of how it was obtained.
+- Integration quirks (handled in the build): local AARs carry no POM, so the auth SDK's AppCompat
+  themes need `androidx.appcompat` added by hand; its `SDKUriHandlerActivity` lacks
+  `android:exported` (pre-Android 12), so the app manifest declares it; it sets
+  `allowBackup=true`, overridden with `tools:replace`.
+
 ## Test 1 — MusicKit initializes under AAOS
+
+✅ **Pass** (2026-10-07, emulator AAOS 14 API 34 Play image, arm64). After loading the native
+libraries, `createLocalController` succeeds and returns a `MediaPlayerController`.
+
 ## Test 2 — User can authenticate
+
+**Apple's Android auth SDK: ❌ fails as designed** (2026-10-07, same image). It shows its own portrait
+"Install Apple Music" screen; the button opens Play, which says *"Your device isn't compatible with
+this version"* for Apple Music on AAOS. No token can be obtained this way.
+
+**Alternative: MusicKit JS on another device.** For development, `tools/musickit_token.py` runs
+MusicKit JS `authorize()` in the desktop browser and pushes the token to the emulator over adb.
+The production equivalent is the QR relay (same approach as Automus). Result: _pending_.
 ## Test 3 — Music User Token obtained / stored / reused
 ## Test 4 — Catalog API search ("Daft Punk")
+
+✅ **Pass** (2026-10-07) with the developer token alone: `GET /v1/catalog/us/search` → 200,
+10 songs, 10 albums, 1 artist, 1 playlist. 30-second previews (plain AAC) play in ExoPlayer.
 ## Test 5 — DRM-protected playback on the AAOS emulator

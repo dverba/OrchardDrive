@@ -1,7 +1,51 @@
+import java.security.KeyFactory
+import java.security.Signature
+import java.security.spec.PKCS8EncodedKeySpec
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.util.Base64
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
 }
+
+/**
+ * Local Apple Music credentials from the git-ignored `apple-music.properties` (see
+ * docs/APPLE_MUSIC_SETUP.md). Null when absent, so the project still builds without them.
+ */
+val appleMusicProps: Properties? = rootProject.file("apple-music.properties").takeIf { it.exists() }
+    ?.let { f -> Properties().apply { f.inputStream().use { load(it) } } }
+
+/**
+ * Signs a MusicKit developer token (ES256 JWT) with the local .p8 key. Issued-at is pinned to the
+ * start of the current UTC day so the value (and BuildConfig) is stable across builds that day.
+ * DEBUG ONLY: anything compiled into an APK can be extracted. Release builds must fetch a token
+ * from a backend instead.
+ */
+fun appleDeveloperToken(): String? {
+    val props = appleMusicProps ?: return null
+    val teamId = props.getProperty("APPLE_TEAM_ID") ?: return null
+    val keyId = props.getProperty("APPLE_KEY_ID") ?: return null
+    val keyFile = props.getProperty("APPLE_PRIVATE_KEY_PATH")?.let { rootProject.file(it) }?.takeIf { it.exists() } ?: return null
+
+    val der = Base64.getDecoder().decode(keyFile.readLines().filterNot { it.startsWith("-----") }.joinToString("").trim())
+    val key = KeyFactory.getInstance("EC").generatePrivate(PKCS8EncodedKeySpec(der))
+    val iat = LocalDate.now(ZoneOffset.UTC).atStartOfDay().toEpochSecond(ZoneOffset.UTC)
+    val exp = iat + 30L * 24 * 3600
+    val b64 = Base64.getUrlEncoder().withoutPadding()
+    val header = b64.encodeToString("""{"alg":"ES256","kid":"$keyId"}""".toByteArray())
+    val payload = b64.encodeToString("""{"iss":"$teamId","iat":$iat,"exp":$exp}""".toByteArray())
+    val signer = Signature.getInstance("SHA256withECDSAinP1363Format").apply {
+        initSign(key)
+        update("$header.$payload".toByteArray())
+    }
+    return "$header.$payload.${b64.encodeToString(signer.sign())}"
+}
+
+val appleSdkAars = fileTree("libs/apple") { include("*.aar") }
+val appleSdkAvailable = !appleSdkAars.isEmpty
 
 // Feature flags. Override per build with e.g. `./gradlew assembleDebug -PuseFakeProvider=false`.
 fun flag(name: String, default: Boolean): String =
@@ -25,15 +69,22 @@ android {
         buildConfigField("boolean", "USE_FAKE_PROVIDER", flag("useFakeProvider", true))
         buildConfigField("boolean", "ENABLE_APPLE_AUTH", flag("enableAppleAuth", false))
         buildConfigField("boolean", "ENABLE_APPLE_PLAYBACK", flag("enableApplePlayback", false))
+        buildConfigField("boolean", "APPLE_SDK_AVAILABLE", appleSdkAvailable.toString())
     }
+
+    // Apple's MusicKit for Android SDK can't be committed, so code that touches it lives in its own
+    // source set that is only compiled when the AARs are present in app/libs/apple/.
+    sourceSets["main"].java.srcDir(if (appleSdkAvailable) "src/applesdk/java" else "src/noapplesdk/java")
 
     buildTypes {
         debug {
             buildConfigField("boolean", "ENABLE_DEBUG_MENU", flag("enableDebugMenu", true))
+            buildConfigField("String", "APPLE_DEVELOPER_TOKEN", "\"${appleDeveloperToken() ?: ""}\"")
         }
         release {
             isMinifyEnabled = false
             buildConfigField("boolean", "ENABLE_DEBUG_MENU", flag("enableDebugMenu", false))
+            buildConfigField("String", "APPLE_DEVELOPER_TOKEN", "\"\"")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -63,6 +114,12 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.guava)
     implementation(libs.guava)
+    implementation(libs.kotlinx.serialization.json)
+    if (appleSdkAvailable) {
+        implementation(appleSdkAars)
+        // Local AARs carry no POM, so add what they need by hand: the auth SDK's themes extend AppCompat.
+        implementation(libs.androidx.appcompat)
+    }
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
