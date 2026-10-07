@@ -56,3 +56,13 @@ adb shell dumpsys media_session | grep -A20 com.aaosmusic
 |---|---|---|
 | Media Center discovers source | ✅ | not tested |
 | Browse / search / playback | ✅ | not tested |
+
+## Emulator audio troubleshooting
+
+- **No sound at all, but tracks show `state:started`:** the emulator's link to host audio can die
+  (seen after an audioserver restart). Cold boot: `adb emu kill`, then start with `-no-snapshot-load`.
+- **Check whether there's actually signal:** debug builds include *Measure output* on the Apple Music
+  Test screen (Visualizer on the output mix; −96 dBFS = silence). Grant first:
+  `adb shell pm grant com.aaosmusic android.permission.RECORD_AUDIO`.
+- **Crackly sound on macOS:** emulator passthrough limitation. If
+  `adb shell dumpsys media.audio_flinger | grep underrun` shows few underruns, the guest side is fine.

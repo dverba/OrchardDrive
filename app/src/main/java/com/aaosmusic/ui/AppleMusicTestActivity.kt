@@ -109,6 +109,7 @@ class AppleMusicTestActivity : ComponentActivity() {
             button("Clear user token") { tokens.userToken = null; applePlayer?.release(); applePlayer = null; render() },
             button("Init MusicKit player") { ensureApplePlayer() },
             button("Pause/Resume MusicKit") { applePlayer?.togglePause() },
+            button("Measure output (5s)") { measureOutput() },
         ))
 
         val query = EditText(this).apply { setText("Daft Punk"); textSize = 20f; minEms = 12; setSingleLine() }
@@ -197,6 +198,34 @@ class AppleMusicTestActivity : ComponentActivity() {
         val player = ensureApplePlayer() ?: return
         log("Test 5: MusicKit play '$title' ($id)")
         player.playSong(id)
+    }
+
+    /**
+     * Peak level of the mixed audio output over 5 s, via a Visualizer on the output mix (session 0).
+     * -9600 mB is digital silence. Debug builds only (needs RECORD_AUDIO, grant with
+     * `adb shell pm grant com.aaosmusic android.permission.RECORD_AUDIO`).
+     */
+    private fun measureOutput() {
+        val viz = runCatching {
+            android.media.audiofx.Visualizer(0).apply {
+                measurementMode = android.media.audiofx.Visualizer.MEASUREMENT_MODE_PEAK_RMS
+                enabled = true
+            }
+        }.getOrElse { log("Meter unavailable: $it"); return }
+        val m = android.media.audiofx.Visualizer.MeasurementPeakRms()
+        var maxPeak = Int.MIN_VALUE
+        var maxRms = Int.MIN_VALUE
+        lifecycleScope.launch {
+            repeat(20) {
+                kotlinx.coroutines.delay(250)
+                viz.getMeasurementPeakRms(m)
+                maxPeak = maxOf(maxPeak, m.mPeak)
+                maxRms = maxOf(maxRms, m.mRms)
+            }
+            viz.release()
+            log("Output level over 5s: peak ${maxPeak / 100.0} dBFS, rms ${maxRms / 100.0} dBFS" +
+                if (maxPeak <= -9600) " (SILENT)" else "")
+        }
     }
 
     private fun log(message: String) {

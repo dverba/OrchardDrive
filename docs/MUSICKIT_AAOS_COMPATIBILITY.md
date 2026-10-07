@@ -112,7 +112,22 @@ page.
 10 songs, 10 albums, 1 artist, 1 playlist. 30-second previews (plain AAC) play in ExoPlayer.
 ## Test 5 — DRM-protected playback on the AAOS emulator
 
-✅ **Pass** (2026-10-07, AAOS 14 API 34 Play image, arm64 emulator on Apple silicon).
+✅ **Pass, audibly confirmed after a correction** (2026-10-07, AAOS 14 API 34 Play image, arm64
+emulator on Apple silicon).
+
+> **Correction:** this was first marked passing on track state alone (AudioTrack `started`, position
+> advancing). The user then reported that no Apple audio was audible. Investigation:
+> a Visualizer meter on the output mix showed real signal (MusicKit peak −2.5 dBFS, RMS −21 dBFS vs
+> −96 dBFS silence), and MusicKit, ExoPlayer and the Radio app all mixed into the same
+> `bus0_media_out` primary output. So the emulator's guest→host audio link was broken (probably
+> since an audioserver restart at 05:49 that logged `-32` errors in every process). After a cold boot
+> (`-no-snapshot-load`), both the ExoPlayer preview and MusicKit playback were **audible**. Sound
+> quality on the emulator is poor, but AudioFlinger shows only 2 partial underruns, so the problem is
+> the emulator's macOS audio passthrough, not MusicKit. Judge quality on real hardware.
+>
+> Lesson: "track started" is not "audible". Use the meter (Apple Music Test → *Measure output*;
+> `adb shell pm grant com.aaosmusic android.permission.RECORD_AUDIO` first) plus a human listen.
+
 `CatalogPlaybackQueueItemProvider` with song `697195462` ("One More Time"):
 - `STOPPED → PLAYING`, duration **320357 ms** (full track, not the 30 s preview).
 - Buffering finished in ~6.5 s. An app `AudioTrack` stayed `state:started` at 44.1 kHz stereo for 70+ s,
@@ -125,7 +140,7 @@ page.
 
 ## Conclusion (2026-10-07)
 
-**Milestone 8 (critical path) is proven on the emulator:** Apple Music → MusicKit for Android SDK →
+**Milestone 8 (critical path) is proven on the emulator, including audible output:** Apple Music → MusicKit for Android SDK →
 our app → audio on AAOS, with sign-in done on a second device. Architecture:
 - **Auth:** QR relay (car ↔ small backend ↔ phone page running MusicKit JS). Apple's Android auth SDK is
   not usable on AAOS.
