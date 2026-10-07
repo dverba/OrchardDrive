@@ -78,10 +78,41 @@ this version"* for Apple Music on AAOS. No token can be obtained this way.
 
 **Alternative: MusicKit JS on another device.** For development, `tools/musickit_token.py` runs
 MusicKit JS `authorize()` in the desktop browser and pushes the token to the emulator over adb.
-The production equivalent is the QR relay (same approach as Automus). Result: _pending_.
+The production equivalent is the QR relay (same approach as Automus). ✅ **Pass** (2026-10-07):
+MusicKit JS v3 `authorize()` in desktop Chrome returned a Music User Token, which works for the API
+and for SDK playback. Gotchas: Chrome showed Apple's `idmsa.apple.com` *"400 Request Header Or
+Cookie Too Large"* (too many apple.com cookies). An Incognito window fixed it. Allow popups for the
+page.
 ## Test 3 — Music User Token obtained / stored / reused
+
+✅ **Pass** (2026-10-07). Token stored in SharedPreferences. After `am force-stop` and a relaunch,
+`GET /v1/me/storefront` → 200 and MusicKit playback still works without signing in again.
 ## Test 4 — Catalog API search ("Daft Punk")
 
 ✅ **Pass** (2026-10-07) with the developer token alone: `GET /v1/catalog/us/search` → 200,
 10 songs, 10 albums, 1 artist, 1 playlist. 30-second previews (plain AAC) play in ExoPlayer.
 ## Test 5 — DRM-protected playback on the AAOS emulator
+
+✅ **Pass** (2026-10-07, AAOS 14 API 34 Play image, arm64 emulator on Apple silicon).
+`CatalogPlaybackQueueItemProvider` with song `697195462` ("One More Time"):
+- `STOPPED → PLAYING`, duration **320357 ms** (full track, not the 30 s preview).
+- Buffering finished in ~6.5 s. An app `AudioTrack` stayed `state:started` at 44.1 kHz stereo for 70+ s,
+  with no item-ended or error callbacks.
+- DRM handled by the SDK's native FootHill module (`FootHillConfig::config()` logged). No Widevine involved.
+- Apple's player requests its own audio focus (`USAGE_MEDIA`/`CONTENT_TYPE_MUSIC`). The future
+  `SimpleBasePlayer` wrapper has to coordinate with that instead of letting Media3 also request focus.
+- Harmless startup noise: `SVAudioRendererNative: SVBufferManager::peekNextBufferToBeConsumed() ERROR
+  illegal state: 0` repeats until the first buffer is ready.
+
+## Conclusion (2026-10-07)
+
+**Milestone 8 (critical path) is proven on the emulator:** Apple Music → MusicKit for Android SDK →
+our app → audio on AAOS, with sign-in done on a second device. Architecture:
+- **Auth:** QR relay (car ↔ small backend ↔ phone page running MusicKit JS). Apple's Android auth SDK is
+  not usable on AAOS.
+- **Playback:** MusicKit for Android `MediaPlayerController` wrapped as a Media3 `SimpleBasePlayer`.
+- **Catalog/library:** Apple Music REST API with developer token + Music User Token.
+
+Open risks: the SDK is from 2020 and could break server-side at any time; it's ARM-only; the Polestar
+may behave differently (verify on car); developer token must move to a backend before any
+non-personal build.

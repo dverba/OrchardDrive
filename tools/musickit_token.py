@@ -98,7 +98,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         token = self.rfile.read(int(self.headers["Content-Length"])).decode().strip()
         if self.path != "/token" or not token or "'" in token:
             self.send_response(400); self.end_headers(); return
-        r = subprocess.run([ADB, "shell", f"am start -n {ACTIVITY} --es {EXTRA} '{token}'"],
+        # --activity-clear-task: start fresh so the token lands in onCreate even if other screens
+        # (e.g. Apple's auth SDK or Play) are stacked on top of the test screen.
+        r = subprocess.run([ADB, "shell", f"am start --activity-clear-task -n {ACTIVITY} --es {EXTRA} '{token}'"],
                            capture_output=True, text=True)
         ok = r.returncode == 0 and "Error" not in r.stdout + r.stderr
         msg = (f"Sent to emulator ({len(token)}-char token). Check the Apple Music Test screen."
