@@ -3,4 +3,17 @@
     <!-- Debug only: AppleMusicTestActivity's output-level meter (Visualizer on the output mix). -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- Debug only: reproduce how a file manager (e.g. AnExplorer) hands an APK to the system installer. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <application>
+        <activity android:name=".debug.InstallProbeActivity" android:exported="true" />
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.probe"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/probe_paths" />
+        </provider>
+    </application>
 </manifest>
