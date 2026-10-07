@@ -40,12 +40,24 @@ internal object AppleSdkBridgeImpl : AppleSdkBridge {
 
     fun loadNativeLibraries() = nativeLibs
 
+    /**
+     * The SDK only requests the 256 kbps stream (flavor "LWHQ") on Wi-Fi; on any other network it caps at
+     * 128 kbps ("LW") unless this undocumented preference is set. The car is usually on its cellular modem.
+     */
+    private fun preferHighQualityStreams(context: Context) {
+        context.applicationContext
+            .getSharedPreferences("com.apple.android.music.playback_preferences", Context.MODE_PRIVATE)
+            .edit().putBoolean("high_quality_on_cellular_enabled", true).apply()
+    }
+
     /** Controller whose tokens are read live from [tokens], so a new sign-in takes effect without recreating it. */
-    fun createController(context: Context, handler: Handler, tokens: AppleMusicTokenStore): MediaPlayerController =
-        MediaPlayerControllerFactory.createLocalController(context.applicationContext, handler, object : TokenProvider {
+    fun createController(context: Context, handler: Handler, tokens: AppleMusicTokenStore): MediaPlayerController {
+        preferHighQualityStreams(context)
+        return MediaPlayerControllerFactory.createLocalController(context.applicationContext, handler, object : TokenProvider {
             override fun getDeveloperToken() = tokens.developerToken.orEmpty()
             override fun getUserToken() = tokens.userToken.orEmpty()
         })
+    }
 
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     override fun playbackProvider(tokens: AppleMusicTokenStore): MusicPlaybackProvider = object : MusicPlaybackProvider {
@@ -59,6 +71,7 @@ internal object AppleSdkBridgeImpl : AppleSdkBridge {
             override fun getDeveloperToken() = developerToken
             override fun getUserToken() = userToken
         }
+        preferHighQualityStreams(context)
         val controller = MediaPlayerControllerFactory.createLocalController(
             context.applicationContext, Handler(Looper.getMainLooper()), tokens,
         )
