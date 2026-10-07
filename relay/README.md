@@ -19,5 +19,15 @@ Deploy:
 - Function: `supabase functions deploy signin --no-verify-jwt --project-ref tlrznrkphtyhuzvsjfis`
 - Page: copy `web/index.html` into the `aaosmusic-signin` repo and push.
 
-TODO: sign the developer token server-side (needs the `.p8` as a Supabase secret) instead of having
-debug builds send it, and add basic rate limiting on `/start`.
+Other routes: `GET /developer-token` (ES256 developer token signed with the MusicKit key held in
+Supabase secrets; apps fetch it instead of shipping a key), `POST /report` (in-car debug reports into
+`debug_reports`). `/start` is rate-limited to 6 per minute per client and `/report` to 20 per hour
+(salted IP hash).
+
+Apple secrets (needed for `/developer-token` and for `/start` without a client-supplied token):
+```bash
+supabase secrets set --project-ref tlrznrkphtyhuzvsjfis \
+  APPLE_TEAM_ID="$(grep APPLE_TEAM_ID apple-music.properties | cut -d= -f2)" \
+  APPLE_KEY_ID="$(grep APPLE_KEY_ID apple-music.properties | cut -d= -f2)" \
+  APPLE_PRIVATE_KEY="$(cat "$(grep APPLE_PRIVATE_KEY_PATH apple-music.properties | cut -d= -f2)")"
+```

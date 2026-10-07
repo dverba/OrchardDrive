@@ -16,7 +16,10 @@ import com.aaosmusic.util.AppLog.Category.PLAYBACK
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Owns the player and the MediaLibrarySession. AAOS Media Center binds to this service directly,
@@ -26,6 +29,8 @@ class AutomotiveMusicService : MediaLibraryService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var session: MediaLibrarySession? = null
+    private lateinit var lastQueue: LastQueueStore
+    private var saveJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -38,13 +43,43 @@ class AutomotiveMusicService : MediaLibraryService() {
             this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val librarySession = MediaLibrarySession.Builder(this, player, AutomotiveLibraryCallback(tree, scope, sessionActivity))
+        lastQueue = LastQueueStore(this)
+        val librarySession = MediaLibrarySession.Builder(this, player, AutomotiveLibraryCallback(tree, scope, sessionActivity, lastQueue))
             .setSessionActivity(sessionActivity)
             .setMediaButtonPreferences(PlaybackButtons.forPlayer(player))
             .build()
         player.addListener(PlayerLogger(librarySession))
+        player.addListener(QueueSaver())
         session = librarySession
         app.appleTokens.addListener(onAccountChanged)
+
+        // Show the last song in AAOS right away (not playing; Play resumes from the saved position).
+        lastQueue.restore()?.let {
+            player.setMediaItems(it.items, it.index, it.positionMs)
+            AppLog.i(PLAYBACK, "Restored last queue: ${it.items.size} items, index ${it.index}, ${it.positionMs / 1000}s")
+        }
+        warmUp()
+    }
+
+    /** Preload the provider's library in the background so the first browse is fast. */
+    private fun warmUp() {
+        val repo = (application as AAOSMusicApp).repository
+        if (!repo.requiresSignIn()) scope.launch { runCatching { repo.warmUp() } }
+    }
+
+    /** Saves the queue on track changes and pauses, and every 15 s while playing. */
+    private inner class QueueSaver : Player.Listener {
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) = save()
+        override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) = save()
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            save()
+            saveJob?.cancel()
+            if (isPlaying) saveJob = scope.launch {
+                while (true) { delay(15_000); save() }
+            }
+        }
+
+        private fun save() { session?.player?.let(lastQueue::save) }
     }
 
     /** New sign-in or sign-out: drop cached data and make AAOS re-browse from the root. */
@@ -55,6 +90,7 @@ class AutomotiveMusicService : MediaLibraryService() {
             AppLog.i(MEDIA_SESSION, "Account changed; refreshing library")
             listOf(MediaIds.ROOT, MediaIds.HOME, MediaIds.LIBRARY).forEach { s.notifyChildrenChanged(it, Int.MAX_VALUE, null) }
         }
+        if (app.appleTokens.userToken == null) lastQueue.clear() else warmUp()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
@@ -75,6 +111,7 @@ class AutomotiveMusicService : MediaLibraryService() {
 
     override fun onDestroy() {
         AppLog.i(MEDIA_SESSION, "Service destroyed")
+        session?.player?.let(lastQueue::save)
         (application as AAOSMusicApp).appleTokens.removeListener(onAccountChanged)
         session?.run {
             player.release()

@@ -44,6 +44,10 @@ fun appleDeveloperToken(): String? {
     return "$header.$payload.${b64.encodeToString(signer.sign())}"
 }
 
+/** Signing for sideloaded car builds; git-ignored. Keep it (and back it up): updates must use the same key. */
+val carSigningProps: Properties? = rootProject.file("secrets/car-signing.properties").takeIf { it.exists() }
+    ?.let { f -> Properties().apply { f.inputStream().use { load(it) } } }
+
 val appleSdkAars = fileTree("libs/apple") { include("*.aar") }
 val appleSdkAvailable = !appleSdkAars.isEmpty
 
@@ -81,6 +85,17 @@ android {
     // source set that is only compiled when the AARs are present in app/libs/apple/.
     sourceSets["main"].java.srcDir(if (appleSdkAvailable) "src/applesdk/java" else "src/noapplesdk/java")
 
+    signingConfigs {
+        carSigningProps?.let { p ->
+            create("car") {
+                storeFile = rootProject.file(p.getProperty("storeFile"))
+                storePassword = p.getProperty("storePassword")
+                keyAlias = p.getProperty("keyAlias")
+                keyPassword = p.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             buildConfigField("boolean", "ENABLE_DEBUG_MENU", flag("enableDebugMenu", true))
@@ -91,6 +106,19 @@ android {
             buildConfigField("boolean", "ENABLE_DEBUG_MENU", flag("enableDebugMenu", false))
             buildConfigField("String", "APPLE_DEVELOPER_TOKEN", "\"\"")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+        // Sideloadable in-car test build (Polestar has no adb): Apple Music on, debug screen and
+        // debug reports on, no Apple credential inside (developer token comes from the relay).
+        create("car") {
+            initWith(getByName("release"))
+            matchingFallbacks += "release"
+            versionNameSuffix = "-car"
+            signingConfig = signingConfigs.findByName("car") ?: signingConfigs.getByName("debug")
+            buildConfigField("boolean", "USE_FAKE_PROVIDER", "false")
+            buildConfigField("boolean", "ENABLE_APPLE_AUTH", "true")
+            buildConfigField("boolean", "ENABLE_APPLE_PLAYBACK", "true")
+            buildConfigField("boolean", "ENABLE_DEBUG_MENU", "true")
+            buildConfigField("String", "APPLE_DEVELOPER_TOKEN", "\"\"")
         }
     }
 
@@ -129,4 +157,12 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+}
+
+/** `./gradlew carApk` → dist/AAOSMusic-car-<version>.apk, ready to copy to a USB stick. */
+tasks.register<Copy>("carApk") {
+    dependsOn("assembleCar")
+    from(layout.buildDirectory.dir("outputs/apk/car")) { include("*.apk") }
+    into(rootProject.layout.projectDirectory.dir("dist"))
+    rename { "AAOSMusic-car-${android.defaultConfig.versionName}.apk" }
 }

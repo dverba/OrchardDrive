@@ -32,6 +32,10 @@ object MediaIds {
     fun song(id: String, context: String) = "$SONG$id$CONTEXT_SEPARATOR$context"
     fun song(id: String) = SONG + id
 
+    /** Letter folder ("A".."Z" or "#") inside a large library list, e.g. `library/songs/A`. */
+    fun bucket(parent: String, letter: String) = "$parent/$letter"
+    private val BUCKETABLE = setOf(PLAYLISTS, ARTISTS, ALBUMS, SONGS)
+
     sealed interface Parsed {
         data class Fixed(val id: String) : Parsed
         data class AlbumId(val id: String) : Parsed
@@ -40,6 +44,7 @@ object MediaIds {
         data class SearchContext(val query: String) : Parsed
         /** [context] is itself a media id (album, playlist, fixed list or search), or null. */
         data class SongId(val id: String, val context: String?) : Parsed
+        data class Bucket(val parent: String, val letter: String) : Parsed
         data class Unknown(val raw: String) : Parsed
     }
 
@@ -57,6 +62,8 @@ object MediaIds {
         mediaId.startsWith(ARTIST) -> Parsed.ArtistId(mediaId.removePrefix(ARTIST))
         mediaId.startsWith(PLAYLIST) -> Parsed.PlaylistId(mediaId.removePrefix(PLAYLIST))
         mediaId.startsWith(SEARCH) -> Parsed.SearchContext(mediaId.removePrefix(SEARCH))
+        mediaId.substringBeforeLast('/') in BUCKETABLE && mediaId.substringAfterLast('/').let { it.length == 1 } ->
+            Parsed.Bucket(mediaId.substringBeforeLast('/'), mediaId.substringAfterLast('/'))
         else -> Parsed.Unknown(mediaId)
     }
 }

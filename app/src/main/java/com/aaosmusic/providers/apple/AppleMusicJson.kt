@@ -39,12 +39,12 @@ object AppleMusicJson {
     /** Preview clip URLs keyed by song id (not part of the internal Song model). */
     data class ParsedSearch(val results: SearchResults, val previews: Map<String, String>)
 
-    /** One page of a collection endpoint. [next] is the path of the following page, if any. */
-    data class Page(val items: List<JsonObject>, val next: String?)
+    /** One page of a collection endpoint. [next] is the path of the following page; [total] the collection size if reported. */
+    data class Page(val items: List<JsonObject>, val next: String?, val total: Int? = null)
 
     fun parsePage(body: String): Page {
         val root = json.parseToJsonElement(body).jsonObject
-        return Page(root.dataArray(), root.str("next"))
+        return Page(root.dataArray(), root.str("next"), root["meta"]?.jsonObject?.get("total")?.jsonPrimitive?.intOrNull)
     }
 
     fun parseSearch(body: String): ParsedSearch {

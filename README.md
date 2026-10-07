@@ -110,11 +110,20 @@ QR sign-in (2026-10-07): settings screen shows a QR + code → phone page at
 https://dverba.github.io/aaosmusic-signin/ → MusicKit JS sign-in → token relayed via Supabase
 (`relay/`) → car stores it and Media Center refreshes on its own. Verified with a real iPhone/Apple ID.
 
-Outstanding: per-list caps (500 albums/artists, 1000 songs) instead of paging;
-duplicate concurrent fetches; queue view and shuffle order vs MusicKit's own shuffle; playback
-resumption for Apple (still returns Recently Played); developer token must move to a backend.
+Also (2026-10-07):
+- Full library (tested with 13,883 songs, 2,095 albums, 1,245 artists) is loaded in the background with
+  parallel paging; lists over 300 items get A–Z folders. Concurrent identical requests are de-duplicated.
+- Songs that can't play through MusicKit for Android (iCloud uploads, delisted purchases; ~29% of the
+  test library) are hidden.
+- Queues are windowed to 100 songs around the tapped one (MusicKit rejects very long queues).
+- Shuffle is done by the app (MusicKit's shuffled order isn't observable), so AAOS's queue view,
+  next and previous match what plays. Toggling shuffle mid-song costs a ~3 s rebuffer.
+- Last queue and position persist: after a restart AAOS shows the last song, and Play resumes in place.
+- In-car diagnostics: in-memory log, crash capture, and **Send debug report** (no adb in the car).
+- Developer token comes from the relay (signed server-side); the `car` build carries no Apple credential.
+
+Polestar: see [docs/POLESTAR_TESTING.md](docs/POLESTAR_TESTING.md).
 
 ### Next milestone
 
-Move developer-token signing server-side (Supabase secret) so builds carry no Apple credential, then
-Milestone 10–11: stabilize the emulator build and install on the Polestar 4.
+Milestone 11: install `dist/AAOSMusic-car-*.apk` on the Polestar 4 and run docs/POLESTAR_TESTING.md.

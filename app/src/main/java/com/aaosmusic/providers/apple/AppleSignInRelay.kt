@@ -38,8 +38,9 @@ class AppleSignInRelay(
     /** URL the QR code encodes. */
     fun pageUrlFor(session: Session): String = pageUrl + "?c=" + URLEncoder.encode(session.code, "UTF-8")
 
-    suspend fun start(developerToken: String): Session {
-        val body = post("start", buildJsonObject { put("developer_token", developerToken) })
+    /** [developerToken] is optional: the relay signs one itself when it holds the MusicKit key. */
+    suspend fun start(developerToken: String?): Session {
+        val body = post("start", buildJsonObject { developerToken?.let { put("developer_token", it) } })
         return Session(
             id = body.str("session_id")!!,
             code = body.str("code")!!,

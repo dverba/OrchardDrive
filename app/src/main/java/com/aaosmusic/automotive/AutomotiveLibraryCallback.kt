@@ -36,6 +36,7 @@ class AutomotiveLibraryCallback(
     private val scope: CoroutineScope,
     /** Opens the parked-mode account screen; offered by AAOS as the "Sign in" action. */
     private val signInIntent: PendingIntent,
+    private val lastQueue: LastQueueStore,
 ) : MediaLibrarySession.Callback {
 
     /** Last search per query, served from onGetSearchResult. */
@@ -195,7 +196,7 @@ class AutomotiveLibraryCallback(
             searchQuery != null -> tree.resolveSearchQueue(searchQuery)
             single != null -> tree.resolveQueue(single.mediaId)
             else -> null
-        }
+        }?.windowed()
         if (queue != null) {
             AppLog.i(PLAYBACK, "Play request from ${controller.packageName}: '${single?.mediaId ?: searchQuery}' " +
                 "→ ${queue.songs.size} item queue, start ${queue.startIndex}")
@@ -222,14 +223,20 @@ class AutomotiveLibraryCallback(
         mediaSession: MediaSession,
         controller: MediaSession.ControllerInfo,
     ): ListenableFuture<MediaItemsWithStartPosition> = scope.future {
-        // TODO: persist the real last queue/position. For now resume from Recently Played.
-        val queue = tree.resolveQueue(MediaIds.RECENT)
-        AppLog.i(PLAYBACK, "Playback resumption requested by ${controller.packageName}")
-        MediaItemsWithStartPosition(
-            queue?.let { q -> q.songs.map { MediaItemMapper.toPlayableItem(it, q.mediaIdOf(it)) } }.orEmpty(),
-            0,
-            0L,
-        )
+        // Resume the persisted queue; fall back to Recently Played on first run.
+        val saved = lastQueue.restore()
+        AppLog.i(PLAYBACK, "Playback resumption requested by ${controller.packageName}: " +
+            (saved?.let { "last queue (${it.items.size} items, index ${it.index}, ${it.positionMs / 1000}s)" } ?: "recently played"))
+        if (saved != null) {
+            MediaItemsWithStartPosition(saved.items, saved.index, saved.positionMs)
+        } else {
+            val queue = tree.resolveQueue(MediaIds.RECENT)
+            MediaItemsWithStartPosition(
+                queue?.let { q -> q.songs.map { MediaItemMapper.toPlayableItem(it, q.mediaIdOf(it)) } }.orEmpty(),
+                0,
+                0L,
+            )
+        }
     }
 
     override fun onCustomCommand(

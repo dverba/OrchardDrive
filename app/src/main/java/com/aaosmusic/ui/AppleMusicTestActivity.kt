@@ -115,6 +115,17 @@ class AppleMusicTestActivity : ComponentActivity() {
         val query = EditText(this).apply { setText("Daft Punk"); textSize = 20f; minEms = 12; setSingleLine() }
         column.addView(row(query, button("Search") { search(query.text.toString()) }))
 
+        val rawId = EditText(this).apply { hint = "raw id (i.… or catalog)"; textSize = 20f; minEms = 12; setSingleLine() }
+        column.addView(row(
+            rawId,
+            button("Play id as SONG") { playWithMusicKit(rawId.text.toString().trim(), "raw id") },
+            button("Play id as UPLOADED") {
+                val id = rawId.text.toString().trim()
+                previewPlayer?.pause()
+                ensureApplePlayer()?.let { log("Uploaded test: $id"); it.playUploaded(id) }
+            },
+        ))
+
         results = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         column.addView(results)
 

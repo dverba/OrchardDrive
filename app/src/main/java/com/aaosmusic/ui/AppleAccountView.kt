@@ -101,11 +101,6 @@ class AppleAccountView(
 
     private fun startSignIn() {
         job?.cancel()
-        val developerToken = tokens.developerToken ?: run {
-            heading.text = "Apple Music unavailable"
-            body.text = "This build has no Apple developer token."
-            return
-        }
         job = scope.launch {
             try {
                 heading.text = "Connect Apple Music"
@@ -115,7 +110,7 @@ class AppleAccountView(
                 primary.text = "New code"
                 primary.setOnClickListener { startSignIn() }
 
-                val session = relay.start(developerToken)
+                val session = relay.start(tokens.developerToken)
                 qr.setImageBitmap(qrBitmap(relay.pageUrlFor(session), qrSize))
                 qr.visibility = View.VISIBLE
                 code.text = session.displayCode

@@ -54,6 +54,12 @@ class AppleMusicPlayer(
     private var playWhenReady = false
     private var repeatMode = Player.REPEAT_MODE_OFF
     private var shuffle = false
+    /**
+     * Shuffle is done here rather than by MusicKit: MusicKit's shuffled order isn't reliably
+     * observable, so its queue would diverge from the Media3 timeline AAOS shows. With shuffle on,
+     * [playlist] holds the shuffled order (current song first) and this holds the original order.
+     */
+    private var unshuffled: List<MediaItem>? = null
     private var prepareRequested = false
     /** MusicKit's queue matches [playlist]. */
     private var queueLoaded = false
@@ -79,19 +85,23 @@ class AppleMusicPlayer(
     init {
         AppleSdkBridgeImpl.loadNativeLibraries()
         tokens.addListener(onTokenChanged)
-        // Signed out at startup is not an error until someone tries to play.
-        if (tokens.userToken != null) ensureController()
+
+        // Signed out (or developer token not fetched yet) at startup is not an error until someone tries to play.
+        if (tokens.userToken != null && tokens.developerToken != null) ensureController()
     }
 
     private fun ensureController(): MediaPlayerController? = controllerOrNull ?: if (tokens.userToken == null) {
         error = PlaybackException("Sign in to Apple Music to play", null, PlaybackException.ERROR_CODE_AUTHENTICATION_EXPIRED)
         null
+    } else if (tokens.developerToken == null) {
+        // Fetched from the relay at startup; the token listener recreates the controller when it arrives.
+        error = PlaybackException("Apple Music isn't ready yet; check the internet connection", null, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)
+        null
     } else try {
         AppleSdkBridgeImpl.createController(appContext, Handler(Looper.getMainLooper()), tokens).also {
             it.addListener(listener)
             controllerOrNull = it
-            if (error?.errorCode == PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED ||
-                error?.errorCode == PlaybackException.ERROR_CODE_AUTHENTICATION_EXPIRED) error = null
+            if (error?.errorCode in RECOVERABLE_ERRORS) error = null
             AppLog.i(APPLE_PLAYER, "MusicKit controller created")
         }
     } catch (e: Exception) {
@@ -103,9 +113,12 @@ class AppleMusicPlayer(
     override fun getState(): State {
         val controller = controllerOrNull
         val duration = controller?.duration ?: 0
+        // uid = mediaId + occurrence, so shuffling is a reorder of the same items, not new items.
+        val seen = HashMap<String, Int>()
         val items = playlist.mapIndexed { i, item ->
             val durationMs = if (i == currentIndex && duration > 0) duration else item.mediaMetadata.durationMs
-            MediaItemData.Builder(i to item.mediaId)
+            val occurrence = seen.merge(item.mediaId, 1, Int::plus)!!
+            MediaItemData.Builder("${item.mediaId}#$occurrence")
                 .setMediaItem(item)
                 .setMediaMetadata(item.mediaMetadata)
                 .setDurationUs(durationMs?.let { it * 1000 } ?: C.TIME_UNSET)
@@ -134,8 +147,16 @@ class AppleMusicPlayer(
     }
 
     override fun handleSetMediaItems(mediaItems: List<MediaItem>, startIndex: Int, startPositionMs: Long): ListenableFuture<*> {
-        playlist = mediaItems
-        currentIndex = if (startIndex == C.INDEX_UNSET) 0 else startIndex
+        val start = if (startIndex == C.INDEX_UNSET) 0 else startIndex
+        if (shuffle) {
+            unshuffled = mediaItems
+            playlist = shuffledAround(mediaItems, start)
+            currentIndex = 0
+        } else {
+            unshuffled = null
+            playlist = mediaItems
+            currentIndex = start
+        }
         pendingSeekMs = if (startPositionMs == C.TIME_UNSET) 0 else startPositionMs
         queueLoaded = false
         ended = false
@@ -206,12 +227,27 @@ class AppleMusicPlayer(
     }
 
     override fun handleSetShuffleModeEnabled(shuffleModeEnabled: Boolean): ListenableFuture<*> {
+        if (shuffle == shuffleModeEnabled) return done()
         shuffle = shuffleModeEnabled
-        controllerOrNull?.setShuffleMode(if (shuffleModeEnabled) PlaybackShuffleMode.SHUFFLE_MODE_SONGS else PlaybackShuffleMode.SHUFFLE_MODE_OFF)
+        val current = playlist.getOrNull(currentIndex)
+        if (shuffleModeEnabled) {
+            unshuffled = playlist
+            playlist = shuffledAround(playlist, currentIndex)
+            currentIndex = 0
+        } else {
+            unshuffled?.takeIf { it.size == playlist.size }?.let { original ->
+                playlist = original
+                currentIndex = original.indexOf(current).coerceAtLeast(0)
+            }
+            unshuffled = null
+        }
+        AppLog.i(APPLE_PLAYER, "Shuffle ${if (shuffleModeEnabled) "on" else "off"}: reordered ${playlist.size} items")
+        reloadKeepingPosition()
         return done()
     }
 
     override fun handleAddMediaItems(index: Int, mediaItems: List<MediaItem>): ListenableFuture<*> {
+        unshuffled = null // queue edited while shuffled: keep the current order when shuffle turns off
         playlist = playlist.toMutableList().apply { addAll(index, mediaItems) }
         if (index <= currentIndex && playlist.size > mediaItems.size) currentIndex += mediaItems.size
         reloadKeepingPosition()
@@ -219,6 +255,7 @@ class AppleMusicPlayer(
     }
 
     override fun handleRemoveMediaItems(fromIndex: Int, toIndex: Int): ListenableFuture<*> {
+        unshuffled = null
         val removingCurrent = currentIndex in fromIndex until toIndex
         playlist = playlist.toMutableList().apply { subList(fromIndex, toIndex).clear() }
         when {
@@ -260,10 +297,15 @@ class AppleMusicPlayer(
             .startItemIndex(currentIndex)
             .build()
         AppLog.i(APPLE_PLAYER, "Loading MusicKit queue: ${ids.size} items, start $currentIndex, playWhenReady=$playWhenReady")
+        // Re-preparing over a loaded queue and then seeking stalls MusicKit; start from a clean stop.
+        if (queueLoaded) controller.stop()
         error = null
         ended = false
-        controller.prepare(queue, playWhenReady)
-        controller.setShuffleMode(if (shuffle) PlaybackShuffleMode.SHUFFLE_MODE_SONGS else PlaybackShuffleMode.SHUFFLE_MODE_OFF)
+        // Seeking while MusicKit is already auto-playing a fresh queue stalls it (position freezes while
+        // it reports PLAYING). With a position to restore, load paused; applyPendingSeek() then seeks
+        // and resumeIfWanted() starts playback.
+        controller.prepare(queue, playWhenReady && pendingSeekMs == 0L)
+        controller.setShuffleMode(PlaybackShuffleMode.SHUFFLE_MODE_OFF)
         controller.setRepeatMode(repeatMode)
         queueLoaded = true
     }
@@ -290,6 +332,13 @@ class AppleMusicPlayer(
         if (index >= 0) currentIndex = index
     }
 
+    /** [items] with the item at [keepFirst] moved to the front and the rest shuffled. */
+    private fun shuffledAround(items: List<MediaItem>, keepFirst: Int): List<MediaItem> {
+        if (items.isEmpty()) return items
+        val first = items[keepFirst.coerceIn(0, items.lastIndex)]
+        return listOf(first) + items.filterIndexed { i, _ -> i != keepFirst }.shuffled()
+    }
+
     private fun catalogId(item: MediaItem?): String? =
         AppleMusicJson.catalogIdFromPlaybackUri(item?.localConfiguration?.uri?.toString())
 
@@ -300,10 +349,7 @@ class AppleMusicPlayer(
 
         override fun onPlaybackStateChanged(c: MediaPlayerController, old: Int, new: Int) {
             when {
-                new == PlaybackState.PLAYING -> {
-                    playWhenReady = true
-                    if (pendingSeekMs > 0) { c.seekToPosition(pendingSeekMs); pendingSeekMs = 0 }
-                }
+                new == PlaybackState.PLAYING -> playWhenReady = true
                 // Only a PLAYING → PAUSED transition is an external pause (audio-focus loss, MusicKit
                 // itself); STOPPED → PAUSED happens while a new queue loads and must not clear intent.
                 new == PlaybackState.PAUSED && old == PlaybackState.PLAYING -> playWhenReady = false
@@ -314,12 +360,25 @@ class AppleMusicPlayer(
         override fun onPlaybackStateUpdated(c: MediaPlayerController) = invalidateState()
 
         override fun onBufferingStateChanged(c: MediaPlayerController, buffering: Boolean) {
-            if (!buffering) resumeIfWanted(c)
+            if (!buffering) {
+                applyPendingSeek(c)
+                resumeIfWanted(c)
+            }
             invalidateState()
+        }
+
+        /** Restores a position carried across a queue (re)load: resume after restart, shuffle toggle, queue edit. */
+        private fun applyPendingSeek(c: MediaPlayerController) {
+            if (pendingSeekMs > 0 && queueLoaded && c.currentItem != null) {
+                AppLog.d(APPLE_PLAYER, "Restoring position ${pendingSeekMs / 1000}s")
+                c.seekToPosition(pendingSeekMs)
+                pendingSeekMs = 0
+            }
         }
 
         override fun onCurrentItemChanged(c: MediaPlayerController, prev: PlayerQueueItem?, cur: PlayerQueueItem?) {
             syncCurrentIndex(cur)
+            if (!c.isBuffering) applyPendingSeek(c)
             resumeIfWanted(c)
             invalidateState()
         }
@@ -360,6 +419,12 @@ class AppleMusicPlayer(
     }
 
     private companion object {
+        val RECOVERABLE_ERRORS = setOf(
+            PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED,
+            PlaybackException.ERROR_CODE_AUTHENTICATION_EXPIRED,
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+        )
+
         val COMMANDS: Player.Commands = Player.Commands.Builder().addAll(
             Player.COMMAND_PLAY_PAUSE,
             Player.COMMAND_PREPARE,

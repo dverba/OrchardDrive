@@ -14,6 +14,12 @@ object MediaItemMapper {
 
         val extras = Bundle()
         node.groupTitle?.let { extras.putString(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, it) }
+        if (node.kind == BrowseNode.Kind.BUCKET) {
+            // Letter folders read as a compact list; their contents (albums/artists) as a grid.
+            extras.putInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_SINGLE_ITEM, MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM)
+            extras.putInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_BROWSABLE, MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM)
+            extras.putInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_PLAYABLE, MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM)
+        }
         if (node.mediaId == MediaIds.HOME || node.mediaId == MediaIds.LIBRARY) {
             // The tabs' children are artwork-less category folders; rows read better than big blank tiles.
             extras.putInt(

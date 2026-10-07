@@ -31,6 +31,8 @@ interface AppleSdkBridge {
 /** Thin handle on MusicKit's MediaPlayerController for the compatibility tests. */
 interface ApplePlayerHandle {
     fun playSong(catalogId: String)
+    /** Experiment: play a library item (e.g. an iCloud upload, `i.…`) as MusicKit's UPLOADED_AUDIO type. */
+    fun playUploaded(libraryId: String)
     fun togglePause()
     fun release()
 }

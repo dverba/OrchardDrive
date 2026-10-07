@@ -71,6 +71,12 @@ internal object AppleSdkBridgeImpl : AppleSdkBridge {
                 log("prepare(song $catalogId, playWhenReady=true)")
             }
 
+            override fun playUploaded(libraryId: String) {
+                val queue = CatalogPlaybackQueueItemProvider.Builder().items(MediaItemType.UPLOADED_AUDIO, libraryId).build()
+                controller.prepare(queue, true)
+                log("prepare(uploaded $libraryId, playWhenReady=true)")
+            }
+
             override fun togglePause() {
                 if (controller.playbackState == PlaybackState.PLAYING) controller.pause() else controller.play()
             }

@@ -10,6 +10,12 @@ import com.aaosmusic.media.models.Song
 import com.aaosmusic.repository.MusicRepository
 import com.aaosmusic.util.AppLog
 import com.aaosmusic.util.AppLog.Category.APPLE_API
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonObject
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -21,7 +27,6 @@ import java.util.concurrent.ConcurrentHashMap
  *
  * Results are cached in memory: lists for a few minutes, individual albums/playlists/songs for
  * the process lifetime, so playing a song (which re-resolves its container) doesn't refetch.
- * TODO: real pagination instead of the per-list caps.
  */
 class AppleMusicProvider(
     private val api: AppleMusicApiClient,
@@ -34,12 +39,24 @@ class AppleMusicProvider(
     private val playlists = ConcurrentHashMap<String, Playlist>()
     private val artists = ConcurrentHashMap<String, Artist>()
     private val lists = ConcurrentHashMap<String, Pair<Long, List<*>>>()
+    /** In-flight loads by key, so concurrent requests for the same list/item share one fetch. */
+    private val inFlight = ConcurrentHashMap<String, Deferred<Any?>>()
 
     override fun requiresSignIn() = tokens.userToken == null
 
     override fun clearCache() {
         storefront = null
         listOf(songs, albums, playlists, artists, lists).forEach { it.clear() }
+    }
+
+    /** Loads the big library lists in the background so browsing them later is instant. */
+    override suspend fun warmUp() {
+        if (requiresSignIn()) return
+        coroutineScope {
+            launch { runCatching { getRecentlyPlayed(); getRecommendations() } }
+            launch { runCatching { getPlaylists(); getArtists(); getAlbums(); getSongs() } }
+        }
+        AppLog.i(APPLE_API, "Library warm-up done: ${songs.size} songs cached")
     }
 
     override suspend fun search(query: String): SearchResults {
@@ -61,21 +78,21 @@ class AppleMusicProvider(
         AppleMusicJson.parseRecommendations(api.get("/v1/me/recommendations?limit=10")).take(30)
     }
 
-    override suspend fun getAlbums(): List<Album> = cachedList("library-albums", minutes = 10) {
-        api.getAll("/v1/me/library/albums", maxItems = 500).map(AppleMusicJson::album).sortedBy { it.title.lowercase() }
+    override suspend fun getAlbums(): List<Album> = cachedList("library-albums", minutes = LIBRARY_TTL_MIN) {
+        api.getAllParallel("/v1/me/library/albums", maxItems = MAX_LIBRARY_ITEMS).map(AppleMusicJson::album).sortedBy { it.title.lowercase() }
     }
 
-    override suspend fun getArtists(): List<Artist> = cachedList("library-artists", minutes = 10) {
-        api.getAll("/v1/me/library/artists?include=catalog", maxItems = 500).map(AppleMusicJson::artist)
+    override suspend fun getArtists(): List<Artist> = cachedList("library-artists", minutes = LIBRARY_TTL_MIN) {
+        api.getAllParallel("/v1/me/library/artists?include=catalog", maxItems = MAX_LIBRARY_ITEMS).map(AppleMusicJson::artist)
             .sortedBy { it.name.lowercase() }
     }.onEach { artists[it.id] = it }
 
-    override suspend fun getPlaylists(): List<Playlist> = cachedList("library-playlists", minutes = 10) {
-        api.getAll("/v1/me/library/playlists", maxItems = 300).map(AppleMusicJson::playlist)
+    override suspend fun getPlaylists(): List<Playlist> = cachedList("library-playlists", minutes = LIBRARY_TTL_MIN) {
+        api.getAllParallel("/v1/me/library/playlists", maxItems = MAX_LIBRARY_ITEMS).map(AppleMusicJson::playlist)
     }
 
-    override suspend fun getSongs(): List<Song> = cachedList("library-songs", minutes = 10) {
-        api.getAll("/v1/me/library/songs", maxItems = 1000).map(AppleMusicJson::song).sortedBy { it.title.lowercase() }
+    override suspend fun getSongs(): List<Song> = cachedList("library-songs", minutes = LIBRARY_TTL_MIN) {
+        api.getAllParallel("/v1/me/library/songs", maxItems = MAX_LIBRARY_ITEMS).map(AppleMusicJson::song).sortedBy { it.title.lowercase() }
     }.also(::remember)
 
     override suspend fun getAlbum(id: String): Album? {
@@ -122,21 +139,40 @@ class AppleMusicProvider(
         sf.also { storefront = it }
     }
 
-    /** First resource at [path], or null on 404. */
-    private suspend fun fetchOne(path: String) = try {
-        AppleMusicJson.parsePage(api.get(path)).items.firstOrNull()
-    } catch (e: AppleMusicApiException) {
-        if (e.status == 404) null else throw e
+    /** First resource at [path], or null on 404. Concurrent calls for the same path share one request. */
+    private suspend fun fetchOne(path: String): JsonObject? = shared("one:$path") {
+        try {
+            AppleMusicJson.parsePage(api.get(path)).items.firstOrNull()
+        } catch (e: AppleMusicApiException) {
+            if (e.status == 404) null else throw e
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private suspend fun <T> shared(key: String, load: suspend () -> T): T = coroutineScope {
+        val mine = async(start = CoroutineStart.LAZY) { load() }
+        val existing = inFlight.putIfAbsent(key, mine as Deferred<Any?>)
+        if (existing != null) {
+            mine.cancel()
+            existing.await() as T
+        } else {
+            try { mine.await() } finally { inFlight.remove(key, mine) }
+        }
     }
 
     private fun remember(list: List<Song>) = list.forEach { songs.putIfAbsent(it.id, it) }
 
     @Suppress("UNCHECKED_CAST")
     private suspend fun <T> cachedList(key: String, minutes: Int, load: suspend () -> List<T>): List<T> {
-        val now = System.currentTimeMillis()
-        lists[key]?.let { (at, value) -> if (now - at < minutes * 60_000L) return value as List<T> }
-        return load().also { lists[key] = now to it }
+        lists[key]?.let { (at, value) -> if (System.currentTimeMillis() - at < minutes * 60_000L) return value as List<T> }
+        return shared("list:$key") { load().also { lists[key] = System.currentTimeMillis() to it } }
     }
 
     private fun String.isLibraryId() = length > 2 && this[1] == '.' && this[0] in "ilrp"
+
+    private companion object {
+        const val LIBRARY_TTL_MIN = 30
+        /** Upper bound per library list; large lists are split into A–Z folders by LibraryTree. */
+        const val MAX_LIBRARY_ITEMS = 25_000
+    }
 }

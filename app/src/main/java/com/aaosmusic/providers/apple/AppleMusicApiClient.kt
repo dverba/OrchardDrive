@@ -4,6 +4,9 @@ import com.aaosmusic.media.MusicProviderException
 import com.aaosmusic.util.AppLog
 import com.aaosmusic.util.AppLog.Category.APPLE_API
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
@@ -39,6 +42,24 @@ class AppleMusicApiClient(private val tokens: AppleMusicTokenStore) {
         return request(path, withUserToken)
     }
 
+    /**
+     * Fetches a whole collection. When the first page reports `meta.total` (library endpoints do),
+     * the remaining pages are fetched in parallel; otherwise `next` links are followed.
+     */
+    suspend fun getAllParallel(path: String, maxItems: Int, pageSize: Int = 100, concurrency: Int = 8): List<kotlinx.serialization.json.JsonObject> =
+        kotlinx.coroutines.coroutineScope {
+            val sep = if ('?' in path) '&' else '?'
+            val first = AppleMusicJson.parsePage(get("$path${sep}limit=$pageSize&offset=0"))
+            val total = first.total ?: return@coroutineScope (first.items + getAll(first.next ?: return@coroutineScope first.items, maxItems - first.items.size, pageSize)).take(maxItems)
+            val offsets = (pageSize until minOf(total, maxItems) step pageSize).toList()
+            val gate = kotlinx.coroutines.sync.Semaphore(concurrency)
+            val pages = offsets.map { offset ->
+                async { gate.withPermit { AppleMusicJson.parsePage(get("$path${sep}limit=$pageSize&offset=$offset")).items } }
+            }.awaitAll()
+            AppLog.d(APPLE_API, "Fetched ${path.substringBefore('?')}: $total items in ${offsets.size + 1} pages")
+            (first.items + pages.flatten()).take(maxItems)
+        }
+
     /** Follows `next` links until [maxItems] resources are collected or pages run out. */
     suspend fun getAll(path: String, maxItems: Int, pageSize: Int = 100): List<kotlinx.serialization.json.JsonObject> {
         val items = mutableListOf<kotlinx.serialization.json.JsonObject>()
@@ -64,8 +85,8 @@ class AppleMusicApiClient(private val tokens: AppleMusicTokenStore) {
     }
 
     private suspend fun request(path: String, withUserToken: Boolean): String = withContext(Dispatchers.IO) {
-        val developerToken = tokens.developerToken
-            ?: throw AppleMusicApiException(0, "No developer token (apple-music.properties missing?)")
+        val developerToken = tokens.ensureDeveloperToken()
+            ?: throw AppleMusicApiException(0, "No Apple developer token (relay unreachable or not configured)")
         val conn = (URL(BASE_URL + path).openConnection() as HttpURLConnection).apply {
             connectTimeout = 10_000
             readTimeout = 15_000

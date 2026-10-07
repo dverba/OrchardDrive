@@ -83,8 +83,62 @@ class LibraryTreeTest {
         assertEquals(listOf("s8", "s9", "s10"), queue.songs.map { it.id })
     }
 
+    @Test fun longQueuesAreWindowedAroundStart() = runTest {
+        val q = tree.resolveQueue(MediaIds.song("s8", MediaIds.SONGS))!!   // 10 songs, start 7
+        val w = q.windowed(max = 4, before = 1)
+        assertEquals(listOf("s7", "s8", "s9", "s10"), w.songs.map { it.id })
+        assertEquals("s8", w.songs[w.startIndex].id)
+        val atStart = tree.resolveQueue(MediaIds.song("s1", MediaIds.SONGS))!!.windowed(max = 4, before = 2)
+        assertEquals(0, atStart.startIndex)
+        assertEquals(4, atStart.songs.size)
+    }
+
+    @Test fun unplayableSongsAreHidden() = runTest {
+        val withUpload = object : com.aaosmusic.media.MusicProvider by provider {
+            override suspend fun getSongs() = provider.getSongs() + provider.getSongs().first().copy(id = "up1", playbackUri = null)
+        }
+        assertEquals(10, LibraryTree(withUpload).getChildren(MediaIds.SONGS)!!.size)
+    }
+
     @Test fun emptySearch() = runTest {
         assertTrue(tree.search("   ").isEmpty())
         assertNull(tree.resolveSearchQueue("zzz"))
+    }
+}
+
+class LibraryTreeBucketTest {
+    private val tree = LibraryTree(FakeMusicProvider("res://", latencyMs = 0), bucketThreshold = 5)
+
+    @Test fun largeSongListIsSplitIntoLetterFolders() = runTest {
+        val buckets = tree.getChildren(MediaIds.SONGS)!!
+        assertTrue(buckets.all { it.kind == BrowseNode.Kind.BUCKET && it.browsable })
+        // Fake titles start with A, C, D, E, G, S, T, U (one bucket per distinct letter, sorted).
+        assertEquals(buckets.map { it.title }.sorted(), buckets.map { it.title })
+        assertEquals(10, buckets.sumOf { it.subtitle!!.substringBefore(' ').toInt() })
+        assertTrue(buckets.first().subtitle!!.endsWith(" songs"))
+    }
+
+    @Test fun bucketHoldsMatchingSongsAndQueuesWithinBucket() = runTest {
+        val d = tree.getChildren(MediaIds.bucket(MediaIds.SONGS, "D"))!!
+        assertEquals(listOf("Dangling Reference", "Dispatchers.Main"), d.map { it.title }.sorted())
+        val queue = tree.resolveQueue(d.first().mediaId)!!
+        assertEquals(2, queue.songs.size)
+        assertTrue(queue.songs.all { it.title.startsWith("D") })
+    }
+
+    @Test fun smallListsAreNotBucketed() = runTest {
+        assertTrue(tree.getChildren(MediaIds.ALBUMS)!!.all { it.kind == BrowseNode.Kind.ALBUM })
+    }
+
+    @Test fun bucketLetters() {
+        assertEquals("E", com.aaosmusic.automotive.bucketOf("Édith"))
+        assertEquals("#", com.aaosmusic.automotive.bucketOf("2Pac"))
+        assertEquals("#", com.aaosmusic.automotive.bucketOf("坂本龍一"))
+        assertEquals("T", com.aaosmusic.automotive.bucketOf("  the Weeknd"))
+    }
+
+    @Test fun bucketIdsParse() {
+        assertEquals(MediaIds.Parsed.Bucket(MediaIds.SONGS, "A"), MediaIds.parse("library/songs/A"))
+        assertEquals(MediaIds.Parsed.Fixed(MediaIds.SONGS), MediaIds.parse("library/songs"))
     }
 }

@@ -19,6 +19,8 @@ import com.aaosmusic.AAOSMusicApp
 import com.aaosmusic.BuildConfig
 import com.aaosmusic.automotive.AutomotiveMusicService
 import com.aaosmusic.automotive.MediaIds
+import com.aaosmusic.util.DebugReport
+import kotlinx.coroutines.launch
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 
@@ -79,6 +81,23 @@ class MainActivity : ComponentActivity() {
         button("+30s") { it.seekTo(it.currentPosition + 30_000) }
         column.addView(buttons)
         if (BuildConfig.ENABLE_DEBUG_MENU) {
+            // No adb in the car: this is how logs get out. Read them back from the relay's debug_reports table.
+            val reportStatus = TextView(this).apply { textSize = 20f }
+            column.addView(Button(this).apply {
+                text = "Send debug report"
+                textSize = 20f
+                setOnClickListener {
+                    isEnabled = false
+                    reportStatus.text = "Sending…"
+                    lifecycleScope.launch {
+                        runCatching { DebugReport.upload(DebugReport.build(application, status.text.toString())) }
+                            .onSuccess { reportStatus.text = "Report sent. ID: ${it.take(8)}" }
+                            .onFailure { reportStatus.text = "Couldn't send report: ${it.message}" }
+                        isEnabled = true
+                    }
+                }
+            })
+            column.addView(reportStatus)
             column.addView(Button(this).apply {
                 text = "Apple Music compatibility tests"
                 textSize = 20f
