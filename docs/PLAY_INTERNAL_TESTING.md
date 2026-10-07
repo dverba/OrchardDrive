@@ -42,6 +42,12 @@ Play then shows a three-item checklist under *Android Automotive OS* (as of Oct 
 3. *Agree to review policy* (locked until a car release exists): accept it then. It's needed for production;
    internal testing isn't quality-reviewed.
 
+**Then switch to a dedicated track (required for an automotive-only app).** By default Play uses the
+*phone* tracks for Automotive, and those reject bundles that require `android.hardware.type.automotive`:
+Form factors → **Android Automotive OS → Manage** → next to *Releases* choose **"Use a dedicated release
+track for Android Automotive OS"** → **Save**
+([Play help](https://support.google.com/googleplay/android-developer/answer/13295490?hl=en)).
+
 *Android XR: Active* shows by default. It's irrelevant here, because the manifest requires
 `android.hardware.type.automotive`, so Play won't offer the app to other device types.
 
@@ -109,9 +115,9 @@ release → upload. The car updates via Play like any other app.
 
 ## Gotchas
 - **"APKs and bundles must not require following features: android.hardware.type.automotive… only in
-  dedicated tracks"**: you're on the *phone* internal-testing track. Discard the draft and create the release
-  on the **Android Automotive OS** internal-testing track (form-factor selector at the top of Testing, or
-  the Form factors checklist link). Reuse the uploaded bundle via **Add from library**.
+  dedicated tracks"**: the release is on the *phone* track. Discard the draft, enable the dedicated
+  Automotive track (step 3), then create the release on the **Android Automotive OS** internal-testing
+  track. Reuse the uploaded bundle via **Add from library**. Dedicated tracks have their **own tester lists**.
 - **Warnings about deobfuscation files / native debug symbols**: safe to ignore. R8 is off, and Apple's
   MusicKit `.so` files ship without symbols.
 - **Upload key:** losing `car-release.jks` means asking Google support for an upload key reset (possible with
