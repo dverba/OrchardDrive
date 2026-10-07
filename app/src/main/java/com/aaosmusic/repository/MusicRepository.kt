@@ -10,4 +10,11 @@ import com.aaosmusic.media.MusicProvider
 class MusicRepository(
     private val provider: MusicProvider,
     val providerName: String,
-) : MusicProvider by provider
+) : MusicProvider by provider {
+    /** Forget cached data, e.g. after the signed-in account changes. */
+    fun clearCache() = (provider as? Clearable)?.clearCache()
+
+    interface Clearable {
+        fun clearCache()
+    }
+}

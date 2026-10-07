@@ -13,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
+import com.aaosmusic.AAOSMusicApp
 import com.aaosmusic.BuildConfig
 import com.aaosmusic.providers.apple.AppleMusicApiClient
 import com.aaosmusic.providers.apple.AppleMusicTokenStore
@@ -59,7 +60,8 @@ class AppleMusicTestActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        tokens = AppleMusicTokenStore(this)
+        // Shared instance: the media service listens on it to refresh AAOS after sign-in.
+        tokens = (application as AAOSMusicApp).appleTokens
         api = AppleMusicApiClient(tokens)
         buildUi()
         consumeInjectedToken(intent)

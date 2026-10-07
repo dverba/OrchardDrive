@@ -2,6 +2,7 @@ package com.aaosmusic.providers.apple
 
 import android.content.Context
 import android.content.Intent
+import com.aaosmusic.media.MusicPlaybackProvider
 
 /**
  * Seam around Apple's MusicKit for Android SDK, which can't be committed. The real implementation
@@ -16,6 +17,9 @@ interface AppleSdkBridge {
 
     /** Music User Token from the sign-in result, or a failure describing Apple's TokenError. */
     fun parseSignInResult(context: Context, data: Intent?): Result<String>
+
+    /** Production playback through MusicKit, or null when the SDK isn't bundled. */
+    fun playbackProvider(tokens: AppleMusicTokenStore): MusicPlaybackProvider?
 
     /**
      * Creates MusicKit's local player. Throws if the native library or SDK can't initialize.

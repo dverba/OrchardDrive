@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Handler
 import android.os.Looper
+import androidx.media3.common.Player
+import com.aaosmusic.media.MusicPlaybackProvider
 import com.apple.android.music.playback.controller.MediaPlayerController
 import com.apple.android.music.playback.controller.MediaPlayerControllerFactory
 import com.apple.android.music.playback.model.MediaItemType
@@ -34,6 +36,20 @@ internal object AppleSdkBridgeImpl : AppleSdkBridge {
     private val nativeLibs by lazy {
         System.loadLibrary("c++_shared")
         System.loadLibrary("appleMusicSDK")
+    }
+
+    fun loadNativeLibraries() = nativeLibs
+
+    /** Controller whose tokens are read live from [tokens], so a new sign-in takes effect without recreating it. */
+    fun createController(context: Context, handler: Handler, tokens: AppleMusicTokenStore): MediaPlayerController =
+        MediaPlayerControllerFactory.createLocalController(context.applicationContext, handler, object : TokenProvider {
+            override fun getDeveloperToken() = tokens.developerToken.orEmpty()
+            override fun getUserToken() = tokens.userToken.orEmpty()
+        })
+
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+    override fun playbackProvider(tokens: AppleMusicTokenStore): MusicPlaybackProvider = object : MusicPlaybackProvider {
+        override fun createPlayer(context: Context): Player = AppleMusicPlayer(context, tokens)
     }
 
     override fun createPlayer(context: Context, developerToken: String, userToken: String, log: (String) -> Unit): ApplePlayerHandle {

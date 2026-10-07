@@ -1,5 +1,6 @@
 package com.aaosmusic.automotive
 
+import android.app.PendingIntent
 import android.os.Bundle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -13,6 +14,7 @@ import androidx.media3.session.MediaSession.MediaItemsWithStartPosition
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionError
 import androidx.media3.session.SessionResult
+import com.aaosmusic.media.MusicProviderException
 import com.aaosmusic.util.AppLog
 import com.aaosmusic.util.AppLog.Category.AAOS_LIBRARY
 import com.aaosmusic.util.AppLog.Category.MEDIA_SESSION
@@ -20,7 +22,9 @@ import com.aaosmusic.util.AppLog.Category.PLAYBACK
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.guava.future
 
 /**
@@ -30,10 +34,13 @@ import kotlinx.coroutines.guava.future
 class AutomotiveLibraryCallback(
     private val tree: LibraryTree,
     private val scope: CoroutineScope,
+    /** Opens the parked-mode account screen; offered by AAOS as the "Sign in" action. */
+    private val signInIntent: PendingIntent,
 ) : MediaLibrarySession.Callback {
 
     /** Last search per query, served from onGetSearchResult. */
     private val searchCache = mutableMapOf<String, List<BrowseNode>>()
+    private val latestSearch = mutableMapOf<String, String>()
 
     override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
         AppLog.i(MEDIA_SESSION, "Controller connected: ${controller.packageName} (uid ${controller.uid})")
@@ -75,8 +82,17 @@ class AutomotiveLibraryCallback(
         pageSize: Int,
         params: LibraryParams?,
     ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> = scope.future {
+        guarded(session) { libraryChildren(parentId, page, pageSize, params) }
+    }
+
+    private suspend fun libraryChildren(
+        parentId: String,
+        page: Int,
+        pageSize: Int,
+        params: LibraryParams?,
+    ): LibraryResult<ImmutableList<MediaItem>> {
         val children = tree.getChildren(parentId)
-        if (children == null) {
+        return if (children == null) {
             AppLog.w(AAOS_LIBRARY, "Children requested for unknown id '$parentId'")
             LibraryResult.ofError(SessionError.ERROR_BAD_VALUE)
         } else {
@@ -90,9 +106,11 @@ class AutomotiveLibraryCallback(
         browser: MediaSession.ControllerInfo,
         mediaId: String,
     ): ListenableFuture<LibraryResult<MediaItem>> = scope.future {
-        tree.getItem(mediaId)
-            ?.let { LibraryResult.ofItem(MediaItemMapper.toMediaItem(it), null) }
-            ?: LibraryResult.ofError(SessionError.ERROR_BAD_VALUE)
+        guarded(session) {
+            tree.getItem(mediaId)
+                ?.let { LibraryResult.ofItem(MediaItemMapper.toMediaItem(it), null) }
+                ?: LibraryResult.ofError(SessionError.ERROR_BAD_VALUE)
+        }
     }
 
     override fun onSearch(
@@ -101,11 +119,17 @@ class AutomotiveLibraryCallback(
         query: String,
         params: LibraryParams?,
     ): ListenableFuture<LibraryResult<Void>> = scope.future {
-        val results = tree.search(query)
-        searchCache[query] = results
-        AppLog.i(AAOS_LIBRARY, "Search '$query': ${results.size} results")
-        session.notifySearchResultChanged(browser, query, results.size, params)
-        LibraryResult.ofVoid()
+        // AAOS searches on every keystroke; only run the query once typing pauses.
+        latestSearch[browser.packageName] = query
+        delay(SEARCH_DEBOUNCE_MS)
+        if (latestSearch[browser.packageName] != query) return@future LibraryResult.ofVoid()
+        guarded(session) {
+            val results = tree.search(query)
+            searchCache[query] = results
+            AppLog.i(AAOS_LIBRARY, "Search '$query': ${results.size} results")
+            session.notifySearchResultChanged(browser, query, results.size, params)
+            LibraryResult.ofVoid()
+        }
     }
 
     override fun onGetSearchResult(
@@ -116,8 +140,42 @@ class AutomotiveLibraryCallback(
         pageSize: Int,
         params: LibraryParams?,
     ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> = scope.future {
-        val results = searchCache[query] ?: tree.search(query).also { searchCache[query] = it }
-        LibraryResult.ofItemList(results.page(page, pageSize).map(MediaItemMapper::toMediaItem), params)
+        guarded(session) {
+            val results = searchCache[query] ?: tree.search(query).also { searchCache[query] = it }
+            LibraryResult.ofItemList(results.page(page, pageSize).map(MediaItemMapper::toMediaItem), params)
+        }
+    }
+
+    /**
+     * Turns provider failures into library errors. Auth failures (not signed in / token expired)
+     * also go to the session as an error carrying a "Sign in" resolution, which AAOS shows as a
+     * button that opens [signInIntent].
+     */
+    @Suppress("UNCHECKED_CAST")
+    private suspend fun <T> guarded(session: MediaSession, block: suspend () -> LibraryResult<T>): LibraryResult<T> = try {
+        block()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: MusicProviderException) {
+        if (e.signInRequired) {
+            AppLog.w(AAOS_LIBRARY, "Sign-in required: ${e.message}")
+            val error = SessionError(
+                SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED,
+                e.message ?: "Sign in to see your music",
+                Bundle().apply {
+                    putString(MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_ACTION_LABEL_COMPAT, "Sign in")
+                    putParcelable(MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT_COMPAT, signInIntent)
+                },
+            )
+            session.sendError(error)
+            LibraryResult.ofError<T>(error) as LibraryResult<T>
+        } else {
+            AppLog.e(AAOS_LIBRARY, "Provider request failed: ${e.message}")
+            LibraryResult.ofError<T>(SessionError.ERROR_IO) as LibraryResult<T>
+        }
+    } catch (e: Exception) {
+        AppLog.e(AAOS_LIBRARY, "Library request failed", e)
+        LibraryResult.ofError<T>(SessionError.ERROR_UNKNOWN) as LibraryResult<T>
     }
 
     /**
@@ -207,6 +265,8 @@ class AutomotiveLibraryCallback(
         return subList(from.toInt(), minOf(size, (from + pageSize).toInt()))
     }
 }
+
+private const val SEARCH_DEBOUNCE_MS = 400L
 
 /** Shuffle/repeat buttons exposed to AAOS as custom actions. */
 object PlaybackButtons {

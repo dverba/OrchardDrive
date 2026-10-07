@@ -2,6 +2,7 @@ package com.aaosmusic.automotive
 
 import com.aaosmusic.automotive.MediaIds.Parsed
 import com.aaosmusic.media.MusicProvider
+import com.aaosmusic.media.MusicProviderException
 import com.aaosmusic.media.models.Album
 import com.aaosmusic.media.models.Artist
 import com.aaosmusic.media.models.MusicItem
@@ -23,6 +24,9 @@ data class BrowseNode(
 ) {
     enum class Kind { FOLDER, ALBUM, ARTIST, PLAYLIST, SONG }
 }
+
+/** Songs without a playback location (e.g. Apple uploads with no catalog match) can't be queued. */
+private val Song.isPlayable: Boolean get() = playbackUri != null
 
 /**
  * A resolved play request: what to queue and where to start. [contextId] is the container the
@@ -80,8 +84,19 @@ class LibraryTree(
 
     val root: BrowseNode get() = fixedNodes.getValue(MediaIds.ROOT)
 
-    /** Children of [parentId], or null if the id is unknown. */
-    suspend fun getChildren(parentId: String): List<BrowseNode>? = when (val p = MediaIds.parse(parentId)) {
+    /**
+     * Children of [parentId], or null if the id is unknown. Throws a sign-in-required
+     * [MusicProviderException] at the root when the provider needs authentication, so AAOS shows
+     * its sign-in prompt immediately instead of an empty-looking hierarchy.
+     */
+    suspend fun getChildren(parentId: String): List<BrowseNode>? {
+        if (parentId == MediaIds.ROOT && music.requiresSignIn()) {
+            throw MusicProviderException("Sign in to see your music", signInRequired = true)
+        }
+        return children(parentId)
+    }
+
+    private suspend fun children(parentId: String): List<BrowseNode>? = when (val p = MediaIds.parse(parentId)) {
         is Parsed.Fixed -> when (p.id) {
             MediaIds.ROOT -> fixed(MediaIds.HOME, MediaIds.LIBRARY)
             MediaIds.HOME -> fixed(MediaIds.RECENT, MediaIds.RECOMMENDED)
@@ -126,25 +141,26 @@ class LibraryTree(
      */
     suspend fun resolveQueue(mediaId: String): PlayQueue? = when (val p = MediaIds.parse(mediaId)) {
         is Parsed.SongId -> {
-            val song = music.getSong(p.id)
-            if (song == null) null else {
-                val context = p.context?.let { contextSongs(it) }.orEmpty()
-                val index = context.indexOfFirst { it.id == song.id }
-                if (index >= 0) PlayQueue(context, index, p.context) else PlayQueue(listOf(song), 0, null)
-            }
+            // Resolve via the container first: some providers' ids (e.g. Apple library-playlist
+            // entries) can only be looked up through their container, not individually.
+            val context = p.context?.let { contextSongs(it) }.orEmpty().filter { it.isPlayable }
+            val index = context.indexOfFirst { it.id == p.id }
+            if (index >= 0) PlayQueue(context, index, p.context)
+            else music.getSong(p.id)?.takeIf { it.isPlayable }?.let { PlayQueue(listOf(it), 0, null) }
         }
         is Parsed.AlbumId, is Parsed.PlaylistId, is Parsed.Fixed, is Parsed.SearchContext ->
-            contextSongs(mediaId).takeIf { it.isNotEmpty() }?.let { PlayQueue(it, 0, mediaId) }
+            contextSongs(mediaId).filter { it.isPlayable }.takeIf { it.isNotEmpty() }?.let { PlayQueue(it, 0, mediaId) }
         is Parsed.ArtistId ->
             music.getArtistAlbums(p.id).flatMap { music.getAlbum(it.id)?.songs.orEmpty() }
-                .takeIf { it.isNotEmpty() }?.let { PlayQueue(it, 0, null) }
+                .filter { it.isPlayable }.takeIf { it.isNotEmpty() }?.let { PlayQueue(it, 0, null) }
         is Parsed.Unknown -> null
     }
 
     /** Queue for a free-text play request (e.g. voice "play Daft Punk"). */
     suspend fun resolveSearchQueue(query: String): PlayQueue? {
         val results = music.search(query)
-        if (results.songs.isNotEmpty()) return PlayQueue(results.songs, 0, MediaIds.search(query))
+        val songs = results.songs.filter { it.isPlayable }
+        if (songs.isNotEmpty()) return PlayQueue(songs, 0, MediaIds.search(query))
         results.albums.firstOrNull()?.let { return resolveQueue(MediaIds.album(it.id)) }
         results.playlists.firstOrNull()?.let { return resolveQueue(MediaIds.playlist(it.id)) }
         results.artists.firstOrNull()?.let { return resolveQueue(MediaIds.artist(it.id)) }
@@ -178,7 +194,7 @@ class LibraryTree(
         subtitle = song.artist,
         artworkUri = song.artworkUri,
         browsable = false,
-        playable = true,
+        playable = song.isPlayable,
         kind = BrowseNode.Kind.SONG,
         song = song,
     )

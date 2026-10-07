@@ -38,12 +38,23 @@ class AutomotiveMusicService : MediaLibraryService() {
             this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val librarySession = MediaLibrarySession.Builder(this, player, AutomotiveLibraryCallback(tree, scope))
+        val librarySession = MediaLibrarySession.Builder(this, player, AutomotiveLibraryCallback(tree, scope, sessionActivity))
             .setSessionActivity(sessionActivity)
             .setMediaButtonPreferences(PlaybackButtons.forPlayer(player))
             .build()
         player.addListener(PlayerLogger(librarySession))
         session = librarySession
+        app.appleTokens.addListener(onAccountChanged)
+    }
+
+    /** New sign-in or sign-out: drop cached data and make AAOS re-browse from the root. */
+    private val onAccountChanged: () -> Unit = {
+        val app = application as AAOSMusicApp
+        app.repository.clearCache()
+        session?.let { s ->
+            AppLog.i(MEDIA_SESSION, "Account changed; refreshing library")
+            listOf(MediaIds.ROOT, MediaIds.HOME, MediaIds.LIBRARY).forEach { s.notifyChildrenChanged(it, Int.MAX_VALUE, null) }
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
@@ -64,6 +75,7 @@ class AutomotiveMusicService : MediaLibraryService() {
 
     override fun onDestroy() {
         AppLog.i(MEDIA_SESSION, "Service destroyed")
+        (application as AAOSMusicApp).appleTokens.removeListener(onAccountChanged)
         session?.run {
             player.release()
             release()

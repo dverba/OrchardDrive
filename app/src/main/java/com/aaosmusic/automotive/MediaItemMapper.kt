@@ -1,7 +1,6 @@
 package com.aaosmusic.automotive
 
 import android.os.Bundle
-import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.session.MediaConstants
@@ -33,7 +32,7 @@ object MediaItemMapper {
             .setTitle(node.title)
             .setSubtitle(node.subtitle)
             .setArtist(if (node.kind == BrowseNode.Kind.ALBUM) node.subtitle else null)
-            .setArtworkUri(node.artworkUri?.toUri())
+            .setArtworkUri(ArtworkProvider.toContentUri(node.artworkUri))
             .setIsBrowsable(node.browsable)
             .setIsPlayable(node.playable)
             .setMediaType(
@@ -58,7 +57,7 @@ object MediaItemMapper {
             .setSubtitle(song.artist)
             .setAlbumTitle(song.album)
             .setAlbumArtist(song.artist)
-            .setArtworkUri(song.artworkUri?.toUri())
+            .setArtworkUri(ArtworkProvider.toContentUri(song.artworkUri))
             .setTrackNumber(song.trackNumber)
             .setDurationMs(song.durationMs)
             .setIsBrowsable(false)

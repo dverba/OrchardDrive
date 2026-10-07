@@ -15,6 +15,9 @@ import com.aaosmusic.media.models.Song
  * Lookups return null for unknown ids instead of throwing; transport/auth failures throw.
  */
 interface MusicProvider {
+    /** True when nothing personal can load until the user signs in (checked before browsing). */
+    fun requiresSignIn(): Boolean = false
+
     suspend fun search(query: String): SearchResults
 
     suspend fun getRecentlyPlayed(): List<Song>

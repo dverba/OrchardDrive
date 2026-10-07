@@ -46,6 +46,13 @@
             </intent-filter>
         </service>
 
+        <!-- Proxies Apple artwork to Media Center as content:// URIs (see ArtworkProvider). -->
+        <provider
+            android:name=".automotive.ArtworkProvider"
+            android:authorities="${applicationId}.artwork"
+            android:exported="true"
+            tools:ignore="ExportedContentProvider" />
+
         <!--
             Parked-only settings/account/debug screen. AAOS media apps don't get a regular launcher
             entry; Media Center opens this via APPLICATION_PREFERENCES (gear icon) and the session

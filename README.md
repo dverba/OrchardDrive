@@ -3,8 +3,10 @@
 Native AAOS media app (Media3 `MediaLibraryService`) intended to become an Apple Music client.
 Target vehicle: Polestar 4 (Google Automotive Services). Development happens on the AAOS emulator.
 
-**Status:** Milestones 1–5 done with a fake provider (browse, search, playback, AAOS controls).
-Apple Music is not integrated yet. See [Status](#status).
+**Status:** Milestones 1–9 work on the emulator. The fake provider covers the AAOS layer; the Apple
+Music provider browses your real library, recommendations and catalog search and plays full tracks
+through MusicKit for Android. Sign-in currently uses a desktop dev tool; the in-car QR flow is next.
+See [Status](#status) and [docs/APPLE_MUSIC_SETUP.md](docs/APPLE_MUSIC_SETUP.md).
 
 ## Quick start
 
@@ -37,9 +39,9 @@ Set as Gradle properties (`-PuseFakeProvider=false`, or in `~/.gradle/gradle.pro
 
 | Property | Default | Effect |
 |---|---|---|
-| `useFakeProvider` | `true` | Fake catalog. `false` currently falls back to fake (no Apple provider yet). |
-| `enableAppleAuth` | `false` | Reserved for Milestone 6. |
-| `enableApplePlayback` | `false` | Reserved for Milestone 8. |
+| `useFakeProvider` | `true` | Fake catalog. `false` selects Apple Music (needs the next flag, credentials and the SDK AARs, else falls back to fake). |
+| `enableAppleAuth` | `false` | Apple sign-in features. |
+| `enableApplePlayback` | `false` | Play through MusicKit for Android (`AppleMusicPlayer`). |
 | `enableDebugMenu` | debug `true`, release `false` | Playback buttons on the settings screen. |
 
 ## Layout
@@ -55,6 +57,10 @@ app/src/main/java/com/aaosmusic/
     MediaItemMapper.kt            internal models → Media3 MediaItem
   media/                          MusicProvider, MusicPlaybackProvider, models
   providers/fake/                 FakeMusicProvider, FakePlaybackProvider (ExoPlayer)
+  providers/apple/                AppleMusicProvider, API client, JSON mapping, token store
+app/src/applesdk/                 MusicKit-dependent code (AppleMusicPlayer); compiled only with the AARs
+app/src/noapplesdk/               stub used when the AARs are absent
+  automotive/ArtworkProvider.kt   content:// proxy for remote artwork (Media Center needs it)
   repository/MusicRepository.kt   provider facade; future cache layer
   ui/MainActivity.kt              parked-only settings/debug screen
   util/AppLog.kt                  structured logging + token redaction
@@ -90,7 +96,20 @@ Design notes: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - Category folders (Recently Played, Playlists, …) have no icons.
 - Test audio streams from soundhelix.com, so the emulator needs network.
 
+### Apple Music provider (verified on emulator, 2026-10-07)
+
+- Media Center: Home → Recently Played (your history), Recommended (Apple's personal
+  recommendations); Library → Playlists (174), Artists (catalog artwork), Albums, Songs.
+- Search from Media Center hits the Apple catalog. Keystrokes are debounced, so typing a word costs one request.
+- Tapping a song plays it and queues the rest of its album/playlist/search results through
+  `AppleMusicPlayer` (Media3 `SimpleBasePlayer` over MusicKit). Next/previous/seek/pause/media keys
+  all work; plays show up in the account's Apple Music history.
+- Signed out: native AAOS "Sign in" prompt at the root; it refreshes automatically after sign-in.
+
+Outstanding: QR sign-in relay; per-list caps (500 albums/artists, 1000 songs) instead of paging;
+duplicate concurrent fetches; queue view and shuffle order vs MusicKit's own shuffle; playback
+resumption for Apple (still returns Recently Played); developer token must move to a backend.
+
 ### Next milestone
 
-Milestone 6–8 spike: isolated Apple Music / MusicKit compatibility proof of concept.
-Record results in `docs/MUSICKIT_AAOS_COMPATIBILITY.md` (started, with known risks).
+QR sign-in relay (backend + phone page), replacing `tools/musickit_token.py`.

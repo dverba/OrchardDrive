@@ -65,6 +65,25 @@ Not started. Record each experiment (date, image, result, logs) under the tests 
   `android:exported` (pre-Android 12), so the app manifest declares it; it sets
   `allowBackup=true`, overridden with `tools:replace`.
 
+## Integration findings (2026-10-07, while building AppleMusicPlayer)
+
+- **MusicKit caches the user token at controller creation**, even though `TokenProvider` is an
+  interface. A controller created while signed out fails later with `TYPE_PLAYBACK_QUEUE`
+  ("FileNotFoundException: /v1/me/storefront"). Don't create it until a token exists, and recreate it
+  when the token changes.
+- **`createLocalController` opens an AudioTrack** and throws `IllegalArgumentException: Invalid audio
+  buffer size` if audioserver is unavailable (seen once during an audioserver restart: `-32`/EPIPE
+  everywhere). Creating it in `Service.onCreate` crashed the service, so creation is now lazy and retried.
+- **`play()` is ignored while a queue is loading.** Media3 calls `prepare()` then `play()`, so the
+  player re-issues `play()` when buffering ends or the current item changes. A `STOPPED → PAUSED`
+  transition during loading is not a user pause.
+- AAOS calls `prepare()` on an empty player when Media Center connects; that must be a no-op.
+- Plays through the SDK are reported to Apple (they appear in `/v1/me/recent/played`).
+- The auth AAR ships `drawable-v24/ic_launcher_foreground.xml` (Android robot) that overrode the
+  app's icon in Media Center; the app's icon resources are now named `ic_app_icon_*`.
+- Library playlist entries come back with `a.`-prefixed ids that can't be fetched individually;
+  play requests resolve through the container instead.
+
 ## Test 1 — MusicKit initializes under AAOS
 
 ✅ **Pass** (2026-10-07, emulator AAOS 14 API 34 Play image, arm64). After loading the native

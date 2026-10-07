@@ -1,5 +1,6 @@
 package com.aaosmusic.providers.apple
 
+import com.aaosmusic.media.MusicProviderException
 import com.aaosmusic.util.AppLog
 import com.aaosmusic.util.AppLog.Category.APPLE_API
 import kotlinx.coroutines.Dispatchers
@@ -8,7 +9,15 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 
-class AppleMusicApiException(val status: Int, message: String) : Exception(message)
+/** 401/403 (or no stored user token) means the Music User Token is missing/expired: sign in again. */
+class AppleMusicApiException(val status: Int, message: String) :
+    MusicProviderException(message, signInRequired = status == 401 || status == 403 || status == NO_USER_TOKEN) {
+
+    companion object {
+        /** Pseudo-status for calls that need a Music User Token when none is stored. */
+        const val NO_USER_TOKEN = -401
+    }
+}
 
 /** Minimal Apple Music API client. Tokens are sent as headers and never logged. */
 class AppleMusicApiClient(private val tokens: AppleMusicTokenStore) {
@@ -19,7 +28,29 @@ class AppleMusicApiClient(private val tokens: AppleMusicTokenStore) {
     /** The signed-in user's storefront (country), or null when no user token is stored. */
     suspend fun userStorefront(): String? {
         if (tokens.userToken == null) return null
-        return AppleMusicJson.parseStorefrontId(get("/v1/me/storefront", withUserToken = true))
+        return AppleMusicJson.parseStorefrontId(get("/v1/me/storefront"))
+    }
+
+    /** GET a path; [withUserToken] adds the Music-User-Token header (required for /v1/me/...). */
+    suspend fun get(path: String, withUserToken: Boolean = path.startsWith("/v1/me/")): String {
+        if (withUserToken && tokens.userToken == null) {
+            throw AppleMusicApiException(AppleMusicApiException.NO_USER_TOKEN, "Not signed in to Apple Music")
+        }
+        return request(path, withUserToken)
+    }
+
+    /** Follows `next` links until [maxItems] resources are collected or pages run out. */
+    suspend fun getAll(path: String, maxItems: Int, pageSize: Int = 100): List<kotlinx.serialization.json.JsonObject> {
+        val items = mutableListOf<kotlinx.serialization.json.JsonObject>()
+        var next: String? = path
+        while (next != null && items.size < maxItems) {
+            // Apple's `next` links carry the offset but not always the limit.
+            val url = if ("limit=" in next) next else next + (if ('?' in next) '&' else '?') + "limit=$pageSize"
+            val page = AppleMusicJson.parsePage(get(url))
+            items += page.items
+            next = page.next
+        }
+        return items.take(maxItems)
     }
 
     suspend fun search(term: String, storefront: String = DEFAULT_STOREFRONT, limit: Int = 10): AppleMusicJson.ParsedSearch {
@@ -32,7 +63,7 @@ class AppleMusicApiClient(private val tokens: AppleMusicTokenStore) {
         }
     }
 
-    private suspend fun get(path: String, withUserToken: Boolean = false): String = withContext(Dispatchers.IO) {
+    private suspend fun request(path: String, withUserToken: Boolean): String = withContext(Dispatchers.IO) {
         val developerToken = tokens.developerToken
             ?: throw AppleMusicApiException(0, "No developer token (apple-music.properties missing?)")
         val conn = (URL(BASE_URL + path).openConnection() as HttpURLConnection).apply {

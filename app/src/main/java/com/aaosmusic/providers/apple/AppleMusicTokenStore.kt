@@ -24,7 +24,14 @@ class AppleMusicTokenStore(context: Context) {
         set(value) {
             prefs.edit().apply { if (value == null) remove(KEY_USER_TOKEN) else putString(KEY_USER_TOKEN, value) }.apply()
             AppLog.i(AUTH, if (value == null) "Music user token cleared" else "Music user token stored: ${AppLog.redact(value)}")
+            listeners.forEach { it() }
         }
+
+    private val listeners = java.util.concurrent.CopyOnWriteArrayList<() -> Unit>()
+
+    /** Called on the setting thread whenever the user token changes (sign-in / sign-out). */
+    fun addListener(listener: () -> Unit) = listeners.add(listener)
+    fun removeListener(listener: () -> Unit) = listeners.remove(listener)
 
     private companion object {
         const val KEY_USER_TOKEN = "music_user_token"

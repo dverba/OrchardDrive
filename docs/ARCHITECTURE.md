@@ -38,3 +38,24 @@ the context lets `onSetMediaItems` queue the rest of the album/playlist/list. Se
 Root hints: browsable = grid, playable = list. Home/Library tabs override to list (category
 folders have no artwork). Albums/playlists show tracks as a list. Search results carry group
 titles.
+
+## Apple Music
+
+```
+AppleMusicProvider ── AppleMusicApiClient ── api.music.apple.com   (metadata, library, search)
+AppleMusicPlayer (SimpleBasePlayer) ── MediaPlayerController (MusicKit for Android, native DRM)
+AppleMusicTokenStore: developer token (BuildConfig, debug) + Music User Token (SharedPreferences)
+```
+
+- **Ids:** library resources keep Apple's prefixed ids (`i.`, `l.`, `r.`, `p.`); catalog ids are
+  numeric / `pl.`. MusicKit plays by catalog id, carried as `Song.playbackUri = applemusic:song:<id>`.
+  Library items with no catalog match have no playbackUri and show as unplayable.
+- **Player:** our playlist is the source of truth for the Media3 timeline; it's mirrored into a
+  MusicKit `CatalogPlaybackQueueItemProvider`. MusicKit owns position, buffering, audio focus and
+  DRM; each MusicKit callback invalidates Media3 state. Next/previous map to MusicKit skips;
+  arbitrary jumps use `skipToQueueItemWithId`.
+- **Sign-in errors:** providers throw `MusicProviderException(signInRequired = true)`. The library
+  callback turns that into a `SessionError` with a "Sign in" resolution intent, which AAOS shows natively.
+  Token changes notify the service (refresh root) and the player (recreate the MusicKit controller).
+- **Artwork:** https artwork is rewritten to `content://com.aaosmusic.artwork/...` and proxied/cached
+  by `ArtworkProvider`, restricted to `*.mzstatic.com`.
