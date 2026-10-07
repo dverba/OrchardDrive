@@ -5,7 +5,7 @@ Target vehicle: Polestar 4 (Google Automotive Services). Development happens on 
 
 **Status:** Milestones 1–9 work on the emulator. The fake provider covers the AAOS layer; the Apple
 Music provider browses your real library, recommendations and catalog search and plays full tracks
-through MusicKit for Android. Sign-in currently uses a desktop dev tool; the in-car QR flow is next.
+through MusicKit for Android. Sign-in is an in-car QR flow (phone signs in, token relayed via Supabase).
 See [Status](#status) and [docs/APPLE_MUSIC_SETUP.md](docs/APPLE_MUSIC_SETUP.md).
 
 ## Quick start
@@ -106,10 +106,15 @@ Design notes: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
   all work; plays show up in the account's Apple Music history.
 - Signed out: native AAOS "Sign in" prompt at the root; it refreshes automatically after sign-in.
 
-Outstanding: QR sign-in relay; per-list caps (500 albums/artists, 1000 songs) instead of paging;
+QR sign-in (2026-10-07): settings screen shows a QR + code → phone page at
+https://dverba.github.io/aaosmusic-signin/ → MusicKit JS sign-in → token relayed via Supabase
+(`relay/`) → car stores it and Media Center refreshes on its own. Verified with a real iPhone/Apple ID.
+
+Outstanding: per-list caps (500 albums/artists, 1000 songs) instead of paging;
 duplicate concurrent fetches; queue view and shuffle order vs MusicKit's own shuffle; playback
 resumption for Apple (still returns Recently Played); developer token must move to a backend.
 
 ### Next milestone
 
-QR sign-in relay (backend + phone page), replacing `tools/musickit_token.py`.
+Move developer-token signing server-side (Supabase secret) so builds carry no Apple credential, then
+Milestone 10–11: stabilize the emulator build and install on the Polestar 4.

@@ -43,10 +43,13 @@ enableAppleAuth=true
 
 Without the AARs the `src/noapplesdk` stub is compiled and the app falls back to the fake provider.
 
-## 4. Sign in (development)
+## 4. Sign in
 
-Apple's Android sign-in needs the Apple Music app, which isn't available on AAOS. Until the QR relay
-exists, use the desktop helper:
+Open the app's settings (gear in Media Center, or the **Sign in** button AAOS shows when signed out).
+It shows a QR code. Scan it with your phone, sign in to Apple Music, and tap **Allow**. The car connects
+within a couple of seconds. See `relay/README.md` for how the relay works.
+
+Fallback for development without a phone, the desktop helper:
 
 ```bash
 python3 tools/musickit_token.py   # open http://localhost:8765 in Chrome (Incognito if Apple

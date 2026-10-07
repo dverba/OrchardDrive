@@ -97,7 +97,12 @@ this version"* for Apple Music on AAOS. No token can be obtained this way.
 
 **Alternative: MusicKit JS on another device.** For development, `tools/musickit_token.py` runs
 MusicKit JS `authorize()` in the desktop browser and pushes the token to the emulator over adb.
-The production equivalent is the QR relay (same approach as Automus). ✅ **Pass** (2026-10-07):
+The production equivalent is the QR relay (same approach as Automus). **✅ QR relay verified
+2026-10-07** with a real phone: car shows QR → phone page (GitHub Pages) runs MusicKit JS
+`authorize()` → token relayed via Supabase → car stores it → library loads. Gotcha: the page first had
+`<meta name="referrer" content="no-referrer">`; after **Allow** the user was dropped back on the page with
+no token (no `/complete` call). Removing it fixed the hand-back. The page also accepts the token via
+`authorizationStatusDidChange` or an already-authorized instance. ✅ **Pass** (2026-10-07):
 MusicKit JS v3 `authorize()` in desktop Chrome returned a Music User Token, which works for the API
 and for SDK playback. Gotchas: Chrome showed Apple's `idmsa.apple.com` *"400 Request Header Or
 Cookie Too Large"* (too many apple.com cookies). An Incognito window fixed it. Allow popups for the
