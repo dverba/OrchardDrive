@@ -18,7 +18,11 @@ class LibraryTreeTest {
 
     @Test fun topLevelHierarchy() = runTest {
         assertEquals(listOf(MediaIds.HOME, MediaIds.LIBRARY), ids(MediaIds.ROOT))
-        assertEquals(listOf(MediaIds.RECENT, MediaIds.RECOMMENDED), ids(MediaIds.HOME))
+        assertEquals(
+            listOf(MediaIds.RECENT, MediaIds.MADE_FOR_YOU, MediaIds.RECOMMENDED, MediaIds.HEAVY_ROTATION,
+                MediaIds.RECENTLY_ADDED, MediaIds.CHARTS),
+            ids(MediaIds.HOME),
+        )
         assertEquals(listOf(MediaIds.PLAYLISTS, MediaIds.ARTISTS, MediaIds.ALBUMS, MediaIds.SONGS), ids(MediaIds.LIBRARY))
     }
 
@@ -152,5 +156,29 @@ class LibraryTreeBucketTest {
     @Test fun bucketIdsParse() {
         assertEquals(MediaIds.Parsed.Bucket(MediaIds.SONGS, "A"), MediaIds.parse("library/songs/A"))
         assertEquals(MediaIds.Parsed.Fixed(MediaIds.SONGS), MediaIds.parse("library/songs"))
+    }
+
+    @Test fun recentlyPlayedHasContainerAndSongSections() = runTest {
+        val recent = tree.getChildren(MediaIds.RECENT)!!
+        assertEquals(listOf("Albums & Playlists", "Songs"), recent.map { it.groupTitle }.distinct())
+        assertTrue(recent.last().playable)
+    }
+
+    @Test fun recommendedIsSectioned() = runTest {
+        val rec = tree.getChildren(MediaIds.RECOMMENDED)!!
+        assertEquals(listOf("More from Async Orchestra", "New Releases for You"), rec.map { it.groupTitle }.distinct())
+    }
+
+    @Test fun shelfSongsQueueWithinTheShelf() = runTest {
+        val shelves = tree.getChildren(MediaIds.CHARTS)!!
+        val topSongs = MediaIds.shelf(MediaIds.CHARTS, "songs")
+        assertEquals(topSongs, shelves.first().mediaId)
+        assertEquals(MediaIds.Parsed.ShelfId(MediaIds.CHARTS, "songs"), MediaIds.parse(topSongs))
+        assertEquals("Top Songs", tree.getItem(topSongs)!!.title)
+        val songs = tree.getChildren(topSongs)!!
+        assertEquals(5, songs.size)
+        val queue = tree.resolveQueue(songs[2].mediaId)!!
+        assertEquals(5, queue.songs.size)
+        assertEquals(2, queue.startIndex)
     }
 }

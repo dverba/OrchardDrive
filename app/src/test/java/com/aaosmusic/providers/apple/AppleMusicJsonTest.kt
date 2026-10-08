@@ -63,21 +63,32 @@ class AppleMusicJsonTest {
         assertTrue(artist.artworkUri!!.startsWith("https://"))
     }
 
-    @Test fun recommendationsKeepAlbumsAndPlaylistsOnly() {
-        val items = AppleMusicJson.parseRecommendations("""{"data": [
-            {"id": "rec1", "type": "personal-recommendation", "relationships": {"contents": {"data": [
-                {"id": "pl.1", "type": "playlists", "attributes": {"name": "Heavy Rotation", "description": {"short": "Tracks you love"}}},
+    @Test fun recommendationGroupsKeepTitlesAndDropStations() {
+        val groups = AppleMusicJson.parseRecommendationGroups("""{"data": [
+            {"id": "rec1", "type": "personal-recommendation", "attributes": {"kind": "music-recommendations",
+                "title": {"stringForDisplay": "Playlists Made for You"}}, "relationships": {"contents": {"data": [
+                {"id": "pl.pm-1", "type": "playlists", "attributes": {"name": "Heavy Rotation", "description": {"short": "Tracks you love"}}},
                 {"id": "ra.1", "type": "stations", "attributes": {"name": "Station"}},
                 {"id": "100", "type": "albums", "attributes": {"name": "Random Access Memories", "artistName": "Daft Punk"}}
             ]}}},
-            {"id": "rec2", "type": "personal-recommendation", "relationships": {"contents": {"data": [
-                {"id": "pl.1", "type": "playlists", "attributes": {"name": "Heavy Rotation"}}
-            ]}}}
+            {"id": "rec2", "type": "personal-recommendation", "attributes": {"title": {"stringForDisplay": "Stations for You"}},
+                "relationships": {"contents": {"data": [{"id": "ra.2", "type": "stations", "attributes": {"name": "Station"}}]}}}
         ]}""")
-        assertEquals(listOf("pl.1", "100"), items.map { it.id })
-        assertTrue(items[0] is Playlist)
+        assertEquals(listOf("Playlists Made for You"), groups.map { it.title })
+        val items = groups.single().items
+        assertEquals(listOf("pl.pm-1", "100"), items.map { it.id })
         assertEquals("Tracks you love", (items[0] as Playlist).description)
         assertTrue(items[1] is Album)
+    }
+
+    @Test fun chartsBecomeShelvesById() {
+        val shelves = AppleMusicJson.parseCharts("""{"results": {
+            "songs": [{"chart": "most-played", "name": "Top Songs", "data": [{"id": "1", "type": "songs", "attributes": {"name": "Solar Eclipse"}}]}],
+            "albums": [{"chart": "most-played", "name": "Top Albums", "data": []}]
+        }}""")
+        assertEquals(listOf("songs"), shelves.map { it.id })
+        assertEquals("Top Songs", shelves.single().title)
+        assertEquals("Solar Eclipse", shelves.single().items.single().title)
     }
 
     @Test fun pageExposesNextLink() {

@@ -5,6 +5,7 @@ import com.aaosmusic.media.models.Artist
 import com.aaosmusic.media.models.MusicItem
 import com.aaosmusic.media.models.Playlist
 import com.aaosmusic.media.models.Rating
+import com.aaosmusic.media.models.Shelf
 import com.aaosmusic.media.models.SearchResults
 import com.aaosmusic.media.models.Song
 import com.aaosmusic.media.models.SongLibraryState
@@ -30,8 +31,23 @@ interface MusicProvider {
 
     suspend fun getRecentlyPlayed(): List<Song>
 
-    /** Mixed albums/playlists, roughly Apple Music's "Listen Now". */
-    suspend fun getRecommendations(): List<MusicItem>
+    /** Recently played albums and playlists (as opposed to [getRecentlyPlayed]'s songs). */
+    suspend fun getRecentlyPlayedContainers(): List<MusicItem> = emptyList()
+
+    /** Personal mixes made for the user (Apple Music's Favorites Mix, Chill Mix, …). */
+    suspend fun getMadeForYou(): List<Playlist> = emptyList()
+
+    /** Titled recommendation groups, roughly Apple Music's Home ("More from …", "New Releases for You"). */
+    suspend fun getRecommendations(): List<Shelf>
+
+    /** Albums and playlists the user plays most lately. */
+    suspend fun getHeavyRotation(): List<MusicItem> = emptyList()
+
+    /** Newest library additions. */
+    suspend fun getRecentlyAdded(): List<MusicItem> = emptyList()
+
+    /** Top charts (songs, albums, playlists) for the user's country. */
+    suspend fun getCharts(): List<Shelf> = emptyList()
 
     suspend fun getAlbums(): List<Album>
     suspend fun getArtists(): List<Artist>

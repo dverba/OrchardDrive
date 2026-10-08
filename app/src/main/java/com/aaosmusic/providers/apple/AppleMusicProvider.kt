@@ -7,6 +7,7 @@ import com.aaosmusic.media.models.Artist
 import com.aaosmusic.media.models.MusicItem
 import com.aaosmusic.media.models.Playlist
 import com.aaosmusic.media.models.Rating
+import com.aaosmusic.media.models.Shelf
 import com.aaosmusic.media.models.SearchResults
 import com.aaosmusic.media.models.Song
 import com.aaosmusic.media.models.SongLibraryState
@@ -82,8 +83,47 @@ class AppleMusicProvider(
             .map(AppleMusicJson::song)
     }.also(::remember)
 
-    override suspend fun getRecommendations(): List<MusicItem> = cachedList("recommendations", minutes = 30) {
-        AppleMusicJson.parseRecommendations(api.get("/v1/me/recommendations?limit=10")).take(30)
+    override suspend fun getRecentlyPlayedContainers(): List<MusicItem> = cachedList("recent-containers", minutes = 2) {
+        // This endpoint caps limit at 10.
+        api.getAll("/v1/me/recent/played", maxItems = 30, pageSize = 10).mapNotNull(AppleMusicJson::item).filter { it is Album || it is Playlist }
+    }.also(::rememberItems)
+
+    /** Personal mixes are the recommended playlists with `pl.pm-` ids. */
+    override suspend fun getMadeForYou(): List<Playlist> =
+        recommendationGroups().flatMap { it.items }.filterIsInstance<Playlist>().filter { it.isMix() }.distinctBy { it.id }
+
+    /** Everything else Apple recommends. Its "Recently Played" group duplicates [getRecentlyPlayedContainers]. */
+    override suspend fun getRecommendations(): List<Shelf> = recommendationGroups()
+        .filter { it.kind != "recently-played" }
+        .mapIndexed { i, g -> Shelf(i.toString(), g.title, g.items.filterNot { it is Playlist && it.isMix() }) }
+        .filter { it.items.isNotEmpty() }
+
+    private suspend fun recommendationGroups() = cachedList("recommendations", minutes = 30) {
+        AppleMusicJson.parseRecommendationGroups(api.get("/v1/me/recommendations?limit=30"))
+    }.onEach { rememberItems(it.items) }
+
+    override suspend fun getHeavyRotation(): List<MusicItem> = cachedList("heavy-rotation", minutes = 30) {
+        api.getAll("/v1/me/history/heavy-rotation", maxItems = 20, pageSize = 10).mapNotNull(AppleMusicJson::item).filter { it is Album || it is Playlist }
+    }.also(::rememberItems)
+
+    override suspend fun getRecentlyAdded(): List<MusicItem> = cachedList("recently-added", minutes = 5) {
+        api.getAll("/v1/me/library/recently-added", maxItems = 50, pageSize = 25).mapNotNull(AppleMusicJson::item)
+    }.also(::rememberItems)
+
+    override suspend fun getCharts(): List<Shelf> = cachedList("charts", minutes = 60) {
+        AppleMusicJson.parseCharts(api.get("/v1/catalog/${storefront()}/charts?types=songs,albums,playlists&limit=50"))
+    }.onEach { rememberItems(it.items) }
+
+    private fun Playlist.isMix() = id.startsWith("pl.pm-")
+
+    /** Caches items listed on Home so opening or playing them doesn't refetch the list. */
+    private fun rememberItems(items: List<MusicItem>) = items.forEach {
+        when (it) {
+            is Song -> songs.putIfAbsent(it.id, it)
+            is Album -> albums.putIfAbsent(it.id, it)
+            is Artist -> artists.putIfAbsent(it.id, it)
+            is Playlist -> Unit // listed without tracks; getPlaylist fetches them
+        }
     }
 
     override suspend fun getAlbums(): List<Album> = cachedList("library-albums", minutes = LIBRARY_TTL_MIN) {
@@ -194,7 +234,7 @@ class AppleMusicProvider(
         api.send("POST", "/v1/me/library?ids%5B$type%5D=$catalogId")
         AppLog.i(APPLE_API, "Added $type '$title' to library")
         // The library lists changed: refetch them next time they're browsed.
-        listOf("library-songs", "library-albums", "library-artists").forEach(lists::remove)
+        listOf("library-songs", "library-albums", "library-artists", "recently-added").forEach(lists::remove)
     }
 
     private fun Song.catalogId(): String? = AppleMusicJson.catalogIdFromPlaybackUri(playbackUri)

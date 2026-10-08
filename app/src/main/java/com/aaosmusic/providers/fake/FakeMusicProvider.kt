@@ -7,6 +7,7 @@ import com.aaosmusic.media.models.MusicItem
 import com.aaosmusic.media.models.Playlist
 import com.aaosmusic.media.models.Rating
 import com.aaosmusic.media.models.SearchResults
+import com.aaosmusic.media.models.Shelf
 import com.aaosmusic.media.models.Song
 import com.aaosmusic.media.models.SongLibraryState
 import kotlinx.coroutines.delay
@@ -104,8 +105,27 @@ class FakeMusicProvider(
         listOf("s5", "s1", "s8", "s3").map { id -> songs.first { it.id == id } }
     }
 
-    override suspend fun getRecommendations(): List<MusicItem> = simulate {
-        listOf(albums[1], playlists[0], albums[2], playlists[1])
+    override suspend fun getRecentlyPlayedContainers(): List<MusicItem> = simulate { listOf(albums[0], playlists[2]) }
+
+    override suspend fun getMadeForYou(): List<Playlist> = simulate { listOf(playlists[0], playlists[1]) }
+
+    override suspend fun getRecommendations(): List<Shelf> = simulate {
+        listOf(
+            Shelf("0", "More from ${artists[1].name}", listOf(albums[1])),
+            Shelf("1", "New Releases for You", listOf(albums[2], albums[0])),
+        )
+    }
+
+    override suspend fun getHeavyRotation(): List<MusicItem> = simulate { listOf(playlists[2], albums[1]) }
+
+    override suspend fun getRecentlyAdded(): List<MusicItem> = simulate { albums.reversed() }
+
+    override suspend fun getCharts(): List<Shelf> = simulate {
+        listOf(
+            Shelf("songs", "Top Songs", songs.take(5)),
+            Shelf("albums", "Top Albums", albums),
+            Shelf("playlists", "Top Playlists", playlists),
+        )
     }
 
     override suspend fun getAlbums(): List<Album> = simulate { albums }

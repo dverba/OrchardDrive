@@ -7,6 +7,7 @@ import com.aaosmusic.media.models.Album
 import com.aaosmusic.media.models.Artist
 import com.aaosmusic.media.models.MusicItem
 import com.aaosmusic.media.models.Playlist
+import com.aaosmusic.media.models.Shelf
 import com.aaosmusic.media.models.Song
 
 /** One entry in the browse tree, independent of Media3 so the tree can be unit tested. */
@@ -60,8 +61,12 @@ data class PlayQueue(val songs: List<Song>, val startIndex: Int, val contextId: 
  * ```
  * root
  *  ├── Home      (tab)
- *  │    ├── Recently Played
- *  │    └── Recommended
+ *  │    ├── Recently Played   (albums & playlists, then songs)
+ *  │    ├── Made for You
+ *  │    ├── Recommended       (sections, e.g. "More from …")
+ *  │    ├── Heavy Rotation
+ *  │    ├── Recently Added
+ *  │    └── Top Charts        (Top Songs / Albums / Playlists)
  *  └── Library   (tab)
  *       ├── Playlists
  *       ├── Artists
@@ -81,6 +86,11 @@ class LibraryTree(
         val library: String = "Library",
         val recent: String = "Recently Played",
         val recommended: String = "Recommended",
+        val madeForYou: String = "Made for You",
+        val heavyRotation: String = "Heavy Rotation",
+        val recentlyAdded: String = "Recently Added",
+        val charts: String = "Top Charts",
+        val albumsAndPlaylists: String = "Albums & Playlists",
         val playlists: String = "Playlists",
         val artists: String = "Artists",
         val albums: String = "Albums",
@@ -96,6 +106,10 @@ class LibraryTree(
         folder(MediaIds.LIBRARY, labels.library),
         folder(MediaIds.RECENT, labels.recent),
         folder(MediaIds.RECOMMENDED, labels.recommended),
+        folder(MediaIds.MADE_FOR_YOU, labels.madeForYou),
+        folder(MediaIds.HEAVY_ROTATION, labels.heavyRotation),
+        folder(MediaIds.RECENTLY_ADDED, labels.recentlyAdded),
+        folder(MediaIds.CHARTS, labels.charts),
         folder(MediaIds.PLAYLISTS, labels.playlists),
         folder(MediaIds.ARTISTS, labels.artists),
         folder(MediaIds.ALBUMS, labels.albums),
@@ -119,10 +133,17 @@ class LibraryTree(
     private suspend fun children(parentId: String): List<BrowseNode>? = when (val p = MediaIds.parse(parentId)) {
         is Parsed.Fixed -> when (p.id) {
             MediaIds.ROOT -> fixed(MediaIds.HOME, MediaIds.LIBRARY)
-            MediaIds.HOME -> fixed(MediaIds.RECENT, MediaIds.RECOMMENDED)
+            MediaIds.HOME -> fixed(
+                MediaIds.RECENT, MediaIds.MADE_FOR_YOU, MediaIds.RECOMMENDED, MediaIds.HEAVY_ROTATION,
+                MediaIds.RECENTLY_ADDED, MediaIds.CHARTS,
+            )
             MediaIds.LIBRARY -> fixed(MediaIds.PLAYLISTS, MediaIds.ARTISTS, MediaIds.ALBUMS, MediaIds.SONGS)
-            MediaIds.RECENT -> music.getRecentlyPlayed().playable().map { songNode(it, MediaIds.RECENT) }
-            MediaIds.RECOMMENDED -> music.getRecommendations().map { itemNode(it) }
+            MediaIds.RECENT -> recentlyPlayed()
+            MediaIds.MADE_FOR_YOU -> music.getMadeForYou().map { playlistNode(it) }
+            MediaIds.RECOMMENDED -> music.getRecommendations().flatMap { shelf -> shelf.items.nodes(null).map { it.copy(groupTitle = shelf.title) } }
+            MediaIds.HEAVY_ROTATION -> music.getHeavyRotation().nodes(p.id)
+            MediaIds.RECENTLY_ADDED -> music.getRecentlyAdded().nodes(p.id)
+            MediaIds.CHARTS -> shelves(p.id).map { shelfNode(p.id, it) }
             MediaIds.PLAYLISTS, MediaIds.ARTISTS, MediaIds.ALBUMS, MediaIds.SONGS -> {
                 val all = libraryList(p.id)
                 if (all.size <= bucketThreshold) all else bucketFolders(p.id, all)
@@ -130,10 +151,39 @@ class LibraryTree(
             else -> null
         }
         is Parsed.Bucket -> libraryList(p.parent, songContext = parentId).filter { bucketOf(it.title) == p.letter }
+        is Parsed.ShelfId -> shelf(p)?.items?.nodes(parentId)
         is Parsed.AlbumId -> music.getAlbum(p.id)?.songs?.playable()?.map { songNode(it, parentId) }
         is Parsed.ArtistId -> music.getArtist(p.id)?.let { music.getArtistAlbums(p.id).withPlayableSongs().map { albumNode(it) } }
         is Parsed.PlaylistId -> music.getPlaylist(p.id)?.songs?.playable()?.map { songNode(it, parentId) }
         is Parsed.SongId, is Parsed.SearchContext, is Parsed.Unknown -> null
+    }
+
+    /** Albums & playlists, then songs; section headers only when both are present. */
+    private suspend fun recentlyPlayed(): List<BrowseNode> {
+        val containers = music.getRecentlyPlayedContainers().nodes(null)
+        val songs = music.getRecentlyPlayed().playable().map { songNode(it, MediaIds.RECENT) }
+        if (containers.isEmpty() || songs.isEmpty()) return containers + songs
+        return containers.map { it.copy(groupTitle = labels.albumsAndPlaylists) } + songs.map { it.copy(groupTitle = labels.songs) }
+    }
+
+    private suspend fun shelves(parentId: String) = when (parentId) {
+        MediaIds.CHARTS -> music.getCharts()
+        else -> emptyList()
+    }
+
+    private suspend fun shelf(p: Parsed.ShelfId): Shelf? = shelves(p.parent).find { it.id == p.id }
+
+    private fun shelfNode(parentId: String, shelf: Shelf) = BrowseNode(
+        MediaIds.shelf(parentId, shelf.id), shelf.title, null, shelf.items.firstOrNull()?.artworkUri,
+        browsable = true, playable = false, kind = BrowseNode.Kind.FOLDER,
+    )
+
+    /** Nodes for a mixed list; songs play within [songContext]. Unplayable songs are hidden. */
+    private fun List<MusicItem>.nodes(songContext: String?): List<BrowseNode> = mapNotNull { item ->
+        when (item) {
+            is Song -> item.takeIf { it.isPlayable }?.let { songNode(it, songContext) }
+            else -> itemNode(item)
+        }
     }
 
     private suspend fun libraryList(listId: String, songContext: String = listId): List<BrowseNode> = when (listId) {
@@ -187,6 +237,7 @@ class LibraryTree(
         is Parsed.PlaylistId -> music.getPlaylist(p.id)?.let { playlistNode(it) }
         is Parsed.SongId -> music.getSong(p.id)?.let { songNode(it, p.context) }
         is Parsed.Bucket -> BrowseNode(mediaId, p.letter, null, null, browsable = true, playable = false, kind = BrowseNode.Kind.BUCKET)
+        is Parsed.ShelfId -> shelf(p)?.let { shelfNode(p.parent, it) }
         is Parsed.SearchContext, is Parsed.Unknown -> null
     }
 
@@ -213,7 +264,7 @@ class LibraryTree(
             if (index >= 0) PlayQueue(context, index, p.context)
             else music.getSong(p.id)?.takeIf { it.isPlayable }?.let { PlayQueue(listOf(it), 0, null) }
         }
-        is Parsed.AlbumId, is Parsed.PlaylistId, is Parsed.Fixed, is Parsed.SearchContext, is Parsed.Bucket ->
+        is Parsed.AlbumId, is Parsed.PlaylistId, is Parsed.Fixed, is Parsed.SearchContext, is Parsed.Bucket, is Parsed.ShelfId ->
             contextSongs(mediaId).filter { it.isPlayable }.takeIf { it.isNotEmpty() }?.let { PlayQueue(it, 0, mediaId) }
         is Parsed.ArtistId ->
             music.getArtistAlbums(p.id).flatMap { music.getAlbum(it.id)?.songs.orEmpty() }
@@ -237,6 +288,7 @@ class LibraryTree(
         is Parsed.PlaylistId -> music.getPlaylist(p.id)?.songs.orEmpty()
         is Parsed.SearchContext -> music.search(p.query).songs
         is Parsed.Bucket -> if (p.parent == MediaIds.SONGS) music.getSongs().filter { bucketOf(it.title) == p.letter } else emptyList()
+        is Parsed.ShelfId -> shelf(p)?.items?.filterIsInstance<Song>().orEmpty()
         is Parsed.Fixed -> when (p.id) {
             MediaIds.RECENT -> music.getRecentlyPlayed()
             MediaIds.SONGS -> music.getSongs()

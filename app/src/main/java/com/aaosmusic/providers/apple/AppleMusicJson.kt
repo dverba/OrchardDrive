@@ -6,6 +6,7 @@ import com.aaosmusic.media.models.MusicItem
 import com.aaosmusic.media.models.Playlist
 import com.aaosmusic.media.models.Rating
 import com.aaosmusic.media.models.SearchResults
+import com.aaosmusic.media.models.Shelf
 import com.aaosmusic.media.models.Song
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -76,15 +77,32 @@ object AppleMusicJson {
         else -> null
     }
 
+    /** One group from `/v1/me/recommendations`, e.g. "More from Radiohead". [kind] is Apple's (`recently-played`, …). */
+    data class RecommendationGroup(val title: String, val kind: String?, val items: List<MusicItem>)
+
     /**
-     * Personal recommendations: each recommendation groups albums/playlists/stations under
-     * `relationships.contents`. Returns the albums and playlists, de-duplicated, in order.
+     * Personal recommendations: each group lists albums/playlists/stations under
+     * `relationships.contents` (group recommendations nest further groups under `recommendations`).
+     * Keeps albums and playlists; stations can't be played.
      */
-    fun parseRecommendations(body: String): List<MusicItem> =
-        parsePage(body).items
-            .flatMap { it.relationship("contents") }
-            .mapNotNull { r -> item(r)?.takeIf { it is Album || it is Playlist } }
-            .distinctBy { it.id }
+    fun parseRecommendationGroups(body: String): List<RecommendationGroup> {
+        fun groups(r: JsonObject): List<RecommendationGroup> {
+            val a = r.attrs()
+            val title = a["title"]?.jsonObject?.str("stringForDisplay").orEmpty()
+            val items = r.relationship("contents").mapNotNull { item(it)?.takeIf { i -> i is Album || i is Playlist } }
+            return listOf(RecommendationGroup(title, a.str("kind"), items)) + r.relationship("recommendations").flatMap(::groups)
+        }
+        return parsePage(body).items.flatMap(::groups).filter { it.items.isNotEmpty() }
+    }
+
+    /** `/v1/catalog/{sf}/charts`: one shelf per chart type, with id `songs`, `albums` or `playlists`. */
+    fun parseCharts(body: String): List<Shelf> {
+        val results = json.parseToJsonElement(body).jsonObject["results"]?.jsonObject ?: return emptyList()
+        return listOf("songs", "albums", "playlists").mapNotNull { type ->
+            val chart = (results[type] as? JsonArray)?.firstOrNull()?.jsonObject ?: return@mapNotNull null
+            Shelf(type, chart.str("name").orEmpty(), chart.dataArray().mapNotNull(::item))
+        }.filter { it.items.isNotEmpty() }
+    }
 
     fun song(r: JsonObject): Song {
         val a = r.attrs()

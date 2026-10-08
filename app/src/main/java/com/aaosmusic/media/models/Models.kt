@@ -72,3 +72,6 @@ data class SongLibraryState(
     /** Every track of the song's album is in the library. Null when the song has no album to add. */
     val albumInLibrary: Boolean? = false,
 )
+
+/** A titled list of items, e.g. "More from Radiohead" or "Top Songs". [id] is stable within its parent. */
+data class Shelf(val id: String, val title: String, val items: List<MusicItem>)

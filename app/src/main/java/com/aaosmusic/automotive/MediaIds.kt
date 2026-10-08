@@ -13,6 +13,10 @@ object MediaIds {
     const val LIBRARY = "library"
     const val RECENT = "home/recent"
     const val RECOMMENDED = "home/recommended"
+    const val MADE_FOR_YOU = "home/made-for-you"
+    const val HEAVY_ROTATION = "home/heavy-rotation"
+    const val RECENTLY_ADDED = "home/recently-added"
+    const val CHARTS = "home/charts"
     const val PLAYLISTS = "library/playlists"
     const val ARTISTS = "library/artists"
     const val ALBUMS = "library/albums"
@@ -36,6 +40,10 @@ object MediaIds {
     fun bucket(parent: String, letter: String) = "$parent/$letter"
     private val BUCKETABLE = setOf(PLAYLISTS, ARTISTS, ALBUMS, SONGS)
 
+    /** One shelf of a folder made of shelves, e.g. `home/charts/songs`. */
+    fun shelf(parent: String, shelfId: String) = "$parent/$shelfId"
+    private val SHELF_PARENTS = setOf(CHARTS)
+
     sealed interface Parsed {
         data class Fixed(val id: String) : Parsed
         data class AlbumId(val id: String) : Parsed
@@ -45,10 +53,14 @@ object MediaIds {
         /** [context] is itself a media id (album, playlist, fixed list or search), or null. */
         data class SongId(val id: String, val context: String?) : Parsed
         data class Bucket(val parent: String, val letter: String) : Parsed
+        data class ShelfId(val parent: String, val id: String) : Parsed
         data class Unknown(val raw: String) : Parsed
     }
 
-    val FIXED = setOf(ROOT, HOME, LIBRARY, RECENT, RECOMMENDED, PLAYLISTS, ARTISTS, ALBUMS, SONGS)
+    val FIXED = setOf(
+        ROOT, HOME, LIBRARY, RECENT, RECOMMENDED, MADE_FOR_YOU, HEAVY_ROTATION, RECENTLY_ADDED, CHARTS,
+        PLAYLISTS, ARTISTS, ALBUMS, SONGS,
+    )
 
     fun parse(mediaId: String): Parsed = when {
         mediaId in FIXED -> Parsed.Fixed(mediaId)
@@ -62,6 +74,8 @@ object MediaIds {
         mediaId.startsWith(ARTIST) -> Parsed.ArtistId(mediaId.removePrefix(ARTIST))
         mediaId.startsWith(PLAYLIST) -> Parsed.PlaylistId(mediaId.removePrefix(PLAYLIST))
         mediaId.startsWith(SEARCH) -> Parsed.SearchContext(mediaId.removePrefix(SEARCH))
+        mediaId.substringBeforeLast('/') in SHELF_PARENTS ->
+            Parsed.ShelfId(mediaId.substringBeforeLast('/'), mediaId.substringAfterLast('/'))
         mediaId.substringBeforeLast('/') in BUCKETABLE && mediaId.substringAfterLast('/').let { it.length == 1 } ->
             Parsed.Bucket(mediaId.substringBeforeLast('/'), mediaId.substringAfterLast('/'))
         else -> Parsed.Unknown(mediaId)
