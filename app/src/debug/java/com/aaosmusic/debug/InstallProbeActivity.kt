@@ -17,7 +17,7 @@ class InstallProbeActivity : Activity() {
         super.onCreate(savedInstanceState)
         val apk = File(cacheDir, "probe/probe.apk").apply { parentFile!!.mkdirs() }
         File(applicationInfo.sourceDir).copyTo(apk, overwrite = true)
-        Log.i("AAOSMusic/APP", "InstallProbe: canRequestPackageInstalls=${packageManager.canRequestPackageInstalls()}")
+        Log.i("OrchardDrive/APP", "InstallProbe: canRequestPackageInstalls=${packageManager.canRequestPackageInstalls()}")
         val uri = FileProvider.getUriForFile(this, "$packageName.probe", apk)
         startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))

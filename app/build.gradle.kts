@@ -165,18 +165,18 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
 }
 
-/** `./gradlew carBundle` → dist/AAOSMusic-car-<version>.aab for Google Play (internal testing). */
+/** `./gradlew carBundle` → dist/OrchardDrive-car-<version>.aab for Google Play (internal testing). */
 tasks.register<Copy>("carBundle") {
     dependsOn("bundleCar")
     from(layout.buildDirectory.dir("outputs/bundle/car")) { include("*.aab") }
     into(rootProject.layout.projectDirectory.dir("dist"))
-    rename { "AAOSMusic-car-${android.defaultConfig.versionName}-${android.defaultConfig.versionCode}.aab" }
+    rename { "OrchardDrive-car-${android.defaultConfig.versionName}-${android.defaultConfig.versionCode}.aab" }
 }
 
-/** `./gradlew carApk` → dist/AAOSMusic-car-<version>.apk, ready to copy to a USB stick. */
+/** `./gradlew carApk` → dist/OrchardDrive-car-<version>.apk, ready to copy to a USB stick. */
 tasks.register<Copy>("carApk") {
     dependsOn("assembleCar")
     from(layout.buildDirectory.dir("outputs/apk/car")) { include("*.apk") }
     into(rootProject.layout.projectDirectory.dir("dist"))
-    rename { "AAOSMusic-car-${android.defaultConfig.versionName}.apk" }
+    rename { "OrchardDrive-car-${android.defaultConfig.versionName}.apk" }
 }

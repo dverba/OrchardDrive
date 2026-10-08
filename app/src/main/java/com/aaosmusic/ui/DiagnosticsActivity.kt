@@ -13,7 +13,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
-import com.aaosmusic.AAOSMusicApp
+import com.aaosmusic.OrchardDriveApp
 import com.aaosmusic.BuildConfig
 import com.aaosmusic.automotive.AutomotiveMusicService
 import com.aaosmusic.automotive.MediaIds
@@ -96,7 +96,7 @@ class DiagnosticsActivity : ComponentActivity() {
                 text = "Simulate expired sign-in"
                 textSize = 20f
                 setOnClickListener {
-                    val app = application as AAOSMusicApp
+                    val app = application as OrchardDriveApp
                     if (app.appleTokens.userToken == null) return@setOnClickListener
                     app.appleTokens.userToken = "expired-test-token"
                     text = "Sign-in invalidated: open Media to see the prompt"
@@ -123,7 +123,7 @@ class DiagnosticsActivity : ComponentActivity() {
     }
 
     private fun render() {
-        val app = application as AAOSMusicApp
+        val app = application as OrchardDriveApp
         val c = controller
         val item = c?.currentMediaItem?.mediaMetadata
         val state = when (c?.playbackState) {

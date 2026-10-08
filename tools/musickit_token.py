@@ -68,7 +68,7 @@ the emulator over adb and is not shown here.</p>
 const s = t => document.getElementById('s').textContent = t;
 document.addEventListener('musickitloaded', async () => {
   try {
-    await MusicKit.configure({developerToken: '__DEV_TOKEN__', app: {name: 'AAOSMusic', build: '0.1.0'}});
+    await MusicKit.configure({developerToken: '__DEV_TOKEN__', app: {name: 'Orchard Drive', build: '0.1.0'}});
   } catch (e) { s('MusicKit configure failed: ' + e); return; }
   const b = document.getElementById('b');
   b.disabled = false; b.textContent = 'Sign in to Apple Music';

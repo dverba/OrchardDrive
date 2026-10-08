@@ -8,7 +8,7 @@ review** (that only applies to production) ([Distribute to cars](https://develop
 
 | Item | Location |
 |---|---|
-| App bundle | `./gradlew carBundle` → `dist/AAOSMusic-car-<version>-<code>.aab` (version code = git commit count, so each build is uploadable) |
+| App bundle | `./gradlew carBundle` → `dist/OrchardDrive-car-<version>-<code>.aab` (version code = git commit count, so each build is uploadable) |
 | Upload key | `secrets/car-release.jks` + `secrets/car-signing.properties` (git-ignored; **back up**) |
 | Package name | `com.dverba.aaosmusic` (permanent) |
 | App icon 512×512 | `store/icon-512.png` |
@@ -28,7 +28,7 @@ native libraries are 64 KB-aligned, which satisfies Play's 16 KB page-size rule.
 
 ### 2. Create the app
 **Home → Create app**
-- App name: `AAOSMusic for Apple Music`
+- App name: `Orchard Drive`
 - Default language: English (US) · App · Free
 - Accept the declarations.
 
@@ -56,7 +56,7 @@ track for Android Automotive OS"** → **Save**
   `Your Apple Music library on Android Automotive. Unofficial, independent player.` (79 chars)
 - **Full description:**
   ```
-  AAOSMusic is an independent player that brings your Apple Music library to cars running Android
+  Orchard Drive is an independent player that brings your Apple Music library to cars running Android
   Automotive OS, using the car's built-in media screen and steering-wheel controls.
 
   • Your library: playlists, artists, albums and songs, with A–Z browsing for large libraries
@@ -67,7 +67,7 @@ track for Android Automotive OS"** → **Save**
 
   Requires an active Apple Music subscription. Uploaded or iCloud-only tracks aren't supported.
 
-  AAOSMusic is not affiliated with, endorsed by, or sponsored by Apple Inc. Apple and Apple Music are
+  Orchard Drive is not affiliated with, endorsed by, or sponsored by Apple Inc. Apple and Apple Music are
   trademarks of Apple Inc.
   ```
 - App icon: `store/icon-512.png` · Feature graphic: `store/feature-graphic-1024x500.png`
@@ -98,13 +98,13 @@ with the **Android Automotive OS** form factor/track selected, not the phone one
 1. **Testers** tab → create an email list containing the **Google account signed in to the car's Play
    Store** → Save → copy the **opt-in link**.
 2. **Create new release** → Play App Signing: accept *Use Google-generated key* (our `car-release.jks` becomes
-   the upload key) → upload `dist/AAOSMusic-car-*.aab` → release name e.g. `0.2.0 (15)` → notes → **Save →
+   the upload key) → upload `dist/OrchardDrive-car-*.aab` → release name e.g. `0.2.0 (15)` → notes → **Save →
    Review → Start rollout to Internal testing**.
 
 ### 7. Install in the car
 1. On a phone or computer, signed in with the **same Google account as the car**, open the opt-in link
    → **Accept** (become a tester).
-2. In the car's Play Store, search `AAOSMusic` (tester-only apps can take a few minutes to show up), or use
+2. In the car's Play Store, search `Orchard Drive` (tester-only apps can take a few minutes to show up), or use
    the "Download it on Google Play" link from the opt-in page in a desktop browser and choose the car as the
    install target if it's offered.
 3. Then follow the test sequence in `POLESTAR_TESTING.md` (from step 2).
@@ -123,12 +123,12 @@ release → upload. The car updates via Play like any other app.
   and saved; (2) invite not yet accepted: open the link in a **browser** on a phone/computer signed in with
   the car's Google account and accept; (3) the car's Play Store uses a different Google account than the
   tester list; (4) release still processing: wait for *Available to internal testers* (a new app's first
-  release can take hours). Then search "AAOSMusic" in the car, or restart the Play Store/infotainment.
+  release can take hours). Then search "Orchard Drive" in the car, or restart the Play Store/infotainment.
 - **Warnings about deobfuscation files / native debug symbols**: safe to ignore. R8 is off, and Apple's
   MusicKit `.so` files ship without symbols.
 - **Upload key:** losing `car-release.jks` means asking Google support for an upload key reset (possible with
   Play App Signing, but slow). Back it up.
 - **Version code:** derived from `git rev-list --count HEAD`. Commit before building, and never rewrite pushed
   history, or the code could go backwards.
-- **Policy:** "for Apple Music" naming plus the disclaimer is the conventional, safe form. A production
+- **Policy:** the name avoids Apple's marks; keep the "not affiliated with Apple" disclaimer in the description. A production
   release would get a stricter review than internal testing.

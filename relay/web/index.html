@@ -50,7 +50,7 @@
 </main>
 
 <script>
-  // Supabase relay (see relay/supabase/functions/signin in the AAOSMusic repo).
+  // Supabase relay (see relay/supabase/functions/signin in the Orchard Drive repo).
   const RELAY = "https://tlrznrkphtyhuzvsjfis.supabase.co/functions/v1/signin";
 
   const $ = (id) => document.getElementById(id);
@@ -83,7 +83,7 @@
       if (!r.ok) throw new Error("This code has expired. Start sign-in again in the car.");
       if (s.status === "complete") { done(); return; }
       await loadMusicKit();
-      const mk = await MusicKit.configure({ developerToken: s.developer_token, app: { name: "AAOSMusic", build: "1.0" } });
+      const mk = await MusicKit.configure({ developerToken: s.developer_token, app: { name: "Orchard Drive", build: "1.0" } });
       // Apple may hand the token back via a reload/redirect or an event rather than resolving
       // authorize(); catch it whichever way it arrives.
       mk.addEventListener("authorizationStatusDidChange", () => {

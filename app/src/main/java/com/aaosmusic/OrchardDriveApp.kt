@@ -19,7 +19,7 @@ import com.aaosmusic.util.DebugReport
 import com.aaosmusic.util.AppLog.Category.APP
 
 /** Wires providers from feature flags. The only place that knows which provider is active. */
-class AAOSMusicApp : Application() {
+class OrchardDriveApp : Application() {
 
     lateinit var repository: MusicRepository
         private set

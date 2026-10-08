@@ -6,8 +6,8 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Structured logging. Every line is tagged `AAOSMusic/<CATEGORY>` so logcat can be filtered with
- * e.g. `adb logcat -s AAOSMusic/PLAYBACK AAOSMusic/AAOS_LIBRARY`.
+ * Structured logging. Every line is tagged `OrchardDrive/<CATEGORY>` so logcat can be filtered with
+ * e.g. `adb logcat -s OrchardDrive/PLAYBACK OrchardDrive/AAOS_LIBRARY`.
  *
  * The last [BUFFER_LINES] lines are also kept in memory for in-car debug reports (the car has no
  * adb). Never pass raw credentials; use [redact].
@@ -40,7 +40,7 @@ object AppLog {
     fun snapshot(): List<String> = synchronized(buffer) { buffer.toList() }
 
     private fun log(priority: Int, category: Category, message: String, t: Throwable?) {
-        val tag = "AAOSMusic/${category.name}"
+        val tag = "OrchardDrive/${category.name}"
         if (t == null) Log.println(priority, tag, message) else Log.println(priority, tag, message + "\n" + Log.getStackTraceString(t))
         val level = "??VDIWEA"[priority.coerceIn(Log.VERBOSE, Log.ASSERT)] // Log.VERBOSE == 2
         val line = buildString {

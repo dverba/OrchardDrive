@@ -1,4 +1,4 @@
-// QR sign-in relay for AAOSMusic.
+// QR sign-in relay for Orchard Drive.
 //
 // The car can't run Apple's sign-in (no Apple Music app on AAOS), so the user signs in on their
 // phone instead:

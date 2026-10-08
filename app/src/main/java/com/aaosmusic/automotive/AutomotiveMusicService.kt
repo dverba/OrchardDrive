@@ -7,7 +7,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
-import com.aaosmusic.AAOSMusicApp
+import com.aaosmusic.OrchardDriveApp
 import com.aaosmusic.R
 import com.aaosmusic.ui.MainActivity
 import com.aaosmusic.util.AppLog
@@ -40,7 +40,7 @@ class AutomotiveMusicService : MediaLibraryService() {
 
     override fun onCreate() {
         super.onCreate()
-        val app = application as AAOSMusicApp
+        val app = application as OrchardDriveApp
         AppLog.i(MEDIA_SESSION, "Service created (provider: ${app.repository.providerName})")
 
         val player = app.playbackProvider.createPlayer(this)
@@ -81,7 +81,7 @@ class AutomotiveMusicService : MediaLibraryService() {
 
     /** Preload the provider's library, then its artwork, in the background so browsing is fast. */
     private fun warmUp() {
-        val repo = (application as AAOSMusicApp).repository
+        val repo = (application as OrchardDriveApp).repository
         if (!repo.requiresSignIn()) scope.launch {
             runCatching { repo.warmUp() }
             prefetchArtwork()
@@ -114,7 +114,7 @@ class AutomotiveMusicService : MediaLibraryService() {
 
     /** New sign-in or sign-out: drop cached data and make AAOS re-browse from the root. */
     private val onAccountChanged: () -> Unit = {
-        val app = application as AAOSMusicApp
+        val app = application as OrchardDriveApp
         app.repository.clearCache()
         session?.let { s ->
             AppLog.i(MEDIA_SESSION, "Account changed; refreshing library")
@@ -135,7 +135,7 @@ class AutomotiveMusicService : MediaLibraryService() {
             AppLog.i(MEDIA_SESSION, "Browse layout changed (grid: ${layout.grid}); refreshing library")
             MediaIds.FIXED.forEach { s.notifyChildrenChanged(it, Int.MAX_VALUE, null) }
         }
-        if (!(application as AAOSMusicApp).repository.requiresSignIn()) prefetchArtwork()
+        if (!(application as OrchardDriveApp).repository.requiresSignIn()) prefetchArtwork()
     }
 
     /** A sort row was tapped: re-send Playlists in the new order. */
@@ -163,7 +163,7 @@ class AutomotiveMusicService : MediaLibraryService() {
     override fun onDestroy() {
         AppLog.i(MEDIA_SESSION, "Service destroyed")
         session?.player?.let(lastQueue::save)
-        (application as AAOSMusicApp).appleTokens.removeListener(onAccountChanged)
+        (application as OrchardDriveApp).appleTokens.removeListener(onAccountChanged)
         layout.removeListener(onLayoutChanged)
         playlistSort.removeListener(onPlaylistSortChanged)
         session?.run {

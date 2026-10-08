@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "AAOSMusic"
+rootProject.name = "OrchardDrive"
 include(":app")

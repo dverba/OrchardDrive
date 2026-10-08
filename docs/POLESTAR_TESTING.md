@@ -7,7 +7,7 @@ The car has no adb, so the build is self-contained and logs leave the car throug
 
 ```bash
 export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
-./gradlew carApk          # → dist/AAOSMusic-car-0.1.0.apk
+./gradlew carApk          # → dist/OrchardDrive-car-0.1.0.apk
 ```
 
 The `car` build type is release-built and signed with `secrets/car-release.jks` (git-ignored; **back it
@@ -25,7 +25,7 @@ credential inside: the developer token comes from the relay, so the relay's Appl
 > Settings has an "Install unknown apps" toggle for the file manager, installing needs adb or Google Play
 > (internal testing).
 
-1. Copy `dist/AAOSMusic-car-*.apk` to a USB stick (exFAT/FAT32).
+1. Copy `dist/OrchardDrive-car-*.apk` to a USB stick (exFAT/FAT32).
 2. In the car (parked): open the file browser → USB → tap the APK.
 3. If asked, allow the file browser to install unknown apps, then **Install**.
 4. Updating: install a newer APK the same way. Settings and sign-in survive updates; an uninstall clears them.

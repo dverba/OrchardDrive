@@ -88,7 +88,7 @@ class LibraryTree(
     }
 
     data class Labels(
-        val appName: String = "AAOSMusic for Apple Music",
+        val appName: String = "Orchard Drive",
         val home: String = "Home",
         val library: String = "Library",
         val recent: String = "Recently Played",

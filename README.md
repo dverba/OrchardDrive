@@ -1,4 +1,4 @@
-# AAOSMusic — Apple Music client for Android Automotive OS
+# Orchard Drive — Apple Music client for Android Automotive OS
 
 Native AAOS media app (Media3 `MediaLibraryService`) intended to become an Apple Music client.
 Target vehicle: Polestar 4 (Google Automotive Services). Development happens on the AAOS emulator.
@@ -28,7 +28,7 @@ adb shell am start -a android.car.intent.action.MEDIA_TEMPLATE \
 adb shell am start -n com.dverba.aaosmusic/com.aaosmusic.ui.MainActivity
 
 # Logs
-adb logcat -s AAOSMusic/PLAYBACK AAOSMusic/AAOS_LIBRARY AAOSMusic/MEDIA_SESSION AAOSMusic/APP
+adb logcat -s OrchardDrive/PLAYBACK OrchardDrive/AAOS_LIBRARY OrchardDrive/MEDIA_SESSION OrchardDrive/APP
 ```
 
 Or open the folder in Android Studio and run the `app` configuration against the AAOS AVD.
@@ -48,7 +48,7 @@ Set as Gradle properties (`-PuseFakeProvider=false`, or in `~/.gradle/gradle.pro
 
 ```
 app/src/main/java/com/aaosmusic/
-  AAOSMusicApp.kt                 provider wiring (only place that knows which provider is active)
+  OrchardDriveApp.kt                 provider wiring (only place that knows which provider is active)
   automotive/
     AutomotiveMusicService.kt     MediaLibraryService: owns player + session
     AutomotiveLibraryCallback.kt  browse / search / play-request / custom-action handling
@@ -130,4 +130,4 @@ Polestar: see [docs/POLESTAR_TESTING.md](docs/POLESTAR_TESTING.md).
 
 ### Next milestone
 
-Milestone 11: install `dist/AAOSMusic-car-*.apk` on the Polestar 4 and run docs/POLESTAR_TESTING.md.
+Milestone 11: install `dist/OrchardDrive-car-*.apk` on the Polestar 4 and run docs/POLESTAR_TESTING.md.

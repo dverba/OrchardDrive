@@ -4,7 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.os.Build
 import android.os.Process
-import com.aaosmusic.AAOSMusicApp
+import com.aaosmusic.OrchardDriveApp
 import com.aaosmusic.BuildConfig
 import com.aaosmusic.util.AppLog.Category.APP
 import kotlinx.coroutines.Dispatchers
@@ -46,8 +46,8 @@ object DebugReport {
     }
 
     fun build(app: Application, extra: String = ""): String = AppLog.scrub(buildString {
-        val a = app as AAOSMusicApp
-        appendLine("AAOSMusic debug report")
+        val a = app as OrchardDriveApp
+        appendLine("Orchard Drive debug report")
         appendLine("App        ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) ${BuildConfig.BUILD_TYPE}")
         appendLine("Device     ${Build.MANUFACTURER} ${Build.MODEL} (${Build.DEVICE})")
         appendLine("Android    ${Build.VERSION.RELEASE} API ${Build.VERSION.SDK_INT}, ${Build.FINGERPRINT}")

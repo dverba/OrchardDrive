@@ -9,7 +9,7 @@ import android.widget.Switch
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
-import com.aaosmusic.AAOSMusicApp
+import com.aaosmusic.OrchardDriveApp
 import com.aaosmusic.BuildConfig
 import com.aaosmusic.automotive.BrowseLayoutStore
 import com.aaosmusic.providers.apple.CellularQualitySetting
@@ -26,7 +26,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val app = application as AAOSMusicApp
+        val app = application as OrchardDriveApp
         val column = LinearLayout(this)
 
         column.addView(SettingsUi.section(this, "Apple Music"))
