@@ -100,6 +100,18 @@ class LibraryTreeTest {
         assertEquals(10, LibraryTree(withUpload).getChildren(MediaIds.SONGS)!!.size)
     }
 
+    @Test fun albumsWithOnlyUploadsAreHidden() = runTest {
+        val upload = provider.getAlbums().first().copy(id = "upAlb", title = "My CD Rip")
+        val withUploadAlbum = object : com.aaosmusic.media.MusicProvider by provider {
+            override suspend fun getAlbums() = provider.getAlbums() + upload
+            override suspend fun getSongs() =
+                provider.getSongs() + provider.getSongs().first().copy(id = "up1", album = "My CD Rip", playbackUri = null)
+        }
+        val albums = LibraryTree(withUploadAlbum).getChildren(MediaIds.ALBUMS)!!.map { it.mediaId }
+        assertEquals(3, albums.size)
+        assertTrue(MediaIds.album("upAlb") !in albums)
+    }
+
     @Test fun emptySearch() = runTest {
         assertTrue(tree.search("   ").isEmpty())
         assertNull(tree.resolveSearchQueue("zzz"))

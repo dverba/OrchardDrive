@@ -42,7 +42,10 @@ class AppleMusicProvider(
     /** In-flight loads by key, so concurrent requests for the same list/item share one fetch. */
     private val inFlight = ConcurrentHashMap<String, Deferred<Any?>>()
 
-    override fun requiresSignIn() = tokens.userToken == null
+    override fun requiresSignIn() = !tokens.signedIn
+
+    override fun signInMessage() =
+        if (tokens.userTokenRejected) AppleMusicApiClient.SIGN_IN_EXPIRED_MESSAGE else super.signInMessage()
 
     override fun clearCache() {
         storefront = null

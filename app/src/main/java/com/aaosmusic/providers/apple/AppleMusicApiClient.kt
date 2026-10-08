@@ -99,7 +99,14 @@ class AppleMusicApiClient(private val tokens: AppleMusicTokenStore) {
             AppLog.d(APPLE_API, "GET ${path.substringBefore('?')} → $status")
             if (status !in 200..299) {
                 val err = conn.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
-                throw AppleMusicApiException(status, "HTTP $status: ${err.take(300)}")
+                AppLog.w(APPLE_API, "GET ${path.substringBefore('?')} failed: HTTP $status ${err.take(300)}")
+                // 403 with a Music-User-Token means Apple no longer accepts it (expired or revoked).
+                if (status == 403 && withUserToken) tokens.markUserTokenRejected()
+                // Shown to the user by Media Center, so plain language rather than Apple's JSON.
+                throw AppleMusicApiException(status, when (status) {
+                    401, 403 -> SIGN_IN_EXPIRED_MESSAGE
+                    else -> "Apple Music isn't responding (error $status). Try again in a moment."
+                })
             }
             conn.inputStream.bufferedReader().use { it.readText() }
         } finally {
@@ -110,5 +117,6 @@ class AppleMusicApiClient(private val tokens: AppleMusicTokenStore) {
     companion object {
         const val BASE_URL = "https://api.music.apple.com"
         const val DEFAULT_STOREFRONT = "us"
+        const val SIGN_IN_EXPIRED_MESSAGE = "Your Apple Music sign-in has expired. Sign in again to see your music."
     }
 }

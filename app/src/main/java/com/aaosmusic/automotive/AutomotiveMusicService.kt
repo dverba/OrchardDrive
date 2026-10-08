@@ -31,6 +31,9 @@ class AutomotiveMusicService : MediaLibraryService() {
     private var session: MediaLibrarySession? = null
     private lateinit var lastQueue: LastQueueStore
     private lateinit var layout: BrowseLayoutStore
+    private lateinit var prefetcher: ArtworkPrefetcher
+    private var prefetchJob: Job? = null
+    @Volatile private var buffering = false
     private var saveJob: Job? = null
 
     override fun onCreate() {
@@ -52,6 +55,11 @@ class AutomotiveMusicService : MediaLibraryService() {
             .build()
         player.addListener(PlayerLogger(librarySession))
         player.addListener(QueueSaver())
+        player.addListener(StaleProgressClearer(librarySession))
+        player.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) { buffering = state == Player.STATE_BUFFERING }
+        })
+        prefetcher = ArtworkPrefetcher(app.repository, ArtworkCache(this)) { buffering }
         session = librarySession
         app.appleTokens.addListener(onAccountChanged)
         layout.addListener(onLayoutChanged)
@@ -64,10 +72,22 @@ class AutomotiveMusicService : MediaLibraryService() {
         warmUp()
     }
 
-    /** Preload the provider's library in the background so the first browse is fast. */
+    /** Preload the provider's library, then its artwork, in the background so browsing is fast. */
     private fun warmUp() {
         val repo = (application as AAOSMusicApp).repository
-        if (!repo.requiresSignIn()) scope.launch { runCatching { repo.warmUp() } }
+        if (!repo.requiresSignIn()) scope.launch {
+            runCatching { repo.warmUp() }
+            prefetchArtwork()
+        }
+    }
+
+    /** (Re)starts the artwork prefetch, e.g. after the tile/list setting changes the sizes needed. */
+    private fun prefetchArtwork() {
+        prefetchJob?.cancel()
+        prefetchJob = scope.launch {
+            runCatching { prefetcher.run(layout.grid) }
+                .onFailure { if (it !is kotlinx.coroutines.CancellationException) AppLog.w(MEDIA_SESSION, "Artwork prefetch failed: ${it.message}") }
+        }
     }
 
     /** Saves the queue on track changes and pauses, and every 15 s while playing. */
@@ -93,7 +113,12 @@ class AutomotiveMusicService : MediaLibraryService() {
             AppLog.i(MEDIA_SESSION, "Account changed; refreshing library")
             listOf(MediaIds.ROOT, MediaIds.HOME, MediaIds.LIBRARY).forEach { s.notifyChildrenChanged(it, Int.MAX_VALUE, null) }
         }
-        if (app.appleTokens.userToken == null) lastQueue.clear() else warmUp()
+        if (app.appleTokens.userToken == null) {
+            prefetchJob?.cancel()
+            lastQueue.clear()
+        } else {
+            warmUp()
+        }
     }
 
     /** Tiles/list switched: every folder's layout hint changed, so make AAOS re-fetch them all. */
@@ -102,6 +127,7 @@ class AutomotiveMusicService : MediaLibraryService() {
             AppLog.i(MEDIA_SESSION, "Browse layout changed (grid: ${layout.grid}); refreshing library")
             MediaIds.FIXED.forEach { s.notifyChildrenChanged(it, Int.MAX_VALUE, null) }
         }
+        if (!(application as AAOSMusicApp).repository.requiresSignIn()) prefetchArtwork()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
@@ -147,6 +173,23 @@ class AutomotiveMusicService : MediaLibraryService() {
     )
 
     /** Logs playback transitions and keeps the shuffle/repeat button icons current. */
+    /**
+     * Media Center draws a progress bar on the browse row of the playing song but never removes it
+     * when the song changes, so every song played from a list kept a frozen bar (looking like
+     * several songs playing at once). Re-sending the previous song's list makes it redraw the rows.
+     */
+    private class StaleProgressClearer(private val session: MediaLibrarySession) : Player.Listener {
+        private var previousId: String? = null
+
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            val previous = previousId
+            previousId = mediaItem?.mediaId
+            if (previous == null || previous == mediaItem?.mediaId) return
+            val list = (MediaIds.parse(previous) as? MediaIds.Parsed.SongId)?.context ?: return
+            session.notifyChildrenChanged(list, Int.MAX_VALUE, null)
+        }
+    }
+
     private class PlayerLogger(private val session: MediaLibrarySession) : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             val m = mediaItem?.mediaMetadata

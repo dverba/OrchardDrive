@@ -87,11 +87,12 @@ class AppleMusicPlayer(
         tokens.addListener(onTokenChanged)
 
         // Signed out (or developer token not fetched yet) at startup is not an error until someone tries to play.
-        if (tokens.userToken != null && tokens.developerToken != null) ensureController()
+        if (tokens.signedIn && tokens.developerToken != null) ensureController()
     }
 
-    private fun ensureController(): MediaPlayerController? = controllerOrNull ?: if (tokens.userToken == null) {
-        error = PlaybackException("Sign in to Apple Music to play", null, PlaybackException.ERROR_CODE_AUTHENTICATION_EXPIRED)
+    private fun ensureController(): MediaPlayerController? = controllerOrNull ?: if (!tokens.signedIn) {
+        val message = if (tokens.userTokenRejected) "Your Apple Music sign-in has expired. Sign in again to play." else "Sign in to Apple Music to play"
+        error = PlaybackException(message, null, PlaybackException.ERROR_CODE_AUTHENTICATION_EXPIRED)
         null
     } else if (tokens.developerToken == null) {
         // Fetched from the relay at startup; the token listener recreates the controller when it arrives.

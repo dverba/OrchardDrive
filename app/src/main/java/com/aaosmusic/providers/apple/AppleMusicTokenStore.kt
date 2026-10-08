@@ -40,10 +40,27 @@ class AppleMusicTokenStore(context: Context) {
     var userToken: String?
         get() = prefs.getString(KEY_USER_TOKEN, null)
         set(value) {
-            prefs.edit().apply { if (value == null) remove(KEY_USER_TOKEN) else putString(KEY_USER_TOKEN, value) }.apply()
+            prefs.edit().apply {
+                if (value == null) remove(KEY_USER_TOKEN) else putString(KEY_USER_TOKEN, value)
+                remove(KEY_USER_TOKEN_REJECTED)
+            }.apply()
             AppLog.i(AUTH, if (value == null) "Music user token cleared" else "Music user token stored: ${AppLog.redact(value)}")
             notifyChanged()
         }
+
+    /** Apple rejected the stored user token (expired, ~6 months, or revoked). A new sign-in clears it. */
+    val userTokenRejected: Boolean get() = prefs.getBoolean(KEY_USER_TOKEN_REJECTED, false)
+
+    /** Signed in with a user token Apple hasn't rejected. */
+    val signedIn: Boolean get() = userToken != null && !userTokenRejected
+
+    /** Called when Apple answers the user token with 403: everything should now ask for a new sign-in. */
+    fun markUserTokenRejected() {
+        if (userToken == null || userTokenRejected) return
+        prefs.edit().putBoolean(KEY_USER_TOKEN_REJECTED, true).apply()
+        AppLog.w(AUTH, "Apple rejected the Music user token; sign-in needed")
+        notifyChanged()
+    }
 
     /** Returns a developer token, fetching a fresh one from the relay when missing or within a day of expiry. */
     suspend fun ensureDeveloperToken(): String? {
@@ -87,6 +104,7 @@ class AppleMusicTokenStore(context: Context) {
 
     private companion object {
         const val KEY_USER_TOKEN = "music_user_token"
+        const val KEY_USER_TOKEN_REJECTED = "music_user_token_rejected"
         const val KEY_DEV_TOKEN = "developer_token"
         const val KEY_DEV_TOKEN_EXPIRES = "developer_token_expires"
         const val REFRESH_MARGIN_MS = 24 * 3600 * 1000L

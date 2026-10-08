@@ -34,7 +34,7 @@ object MediaItemMapper {
      * rows, and Home/Library's category folders (icons, not artwork) are always rows.
      */
     fun toMediaItem(node: BrowseNode, grid: Boolean = true): MediaItem {
-        node.song?.let { song -> return toPlayableItem(song, node.mediaId) }
+        node.song?.let { song -> return toPlayableItem(song, node.mediaId, ArtworkSize.ROW) }
 
         val extras = Bundle()
         node.groupTitle?.let { extras.putString(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, it) }
@@ -55,7 +55,11 @@ object MediaItemMapper {
             .setTitle(node.title)
             .setSubtitle(node.subtitle)
             .setArtist(if (node.kind == BrowseNode.Kind.ALBUM) node.subtitle else null)
-            .setArtworkUri(ArtworkProvider.toContentUri(node.artworkUri) ?: folderIconUri(node.mediaId))
+            .setArtworkUri(
+                // Shown as a tile or a row thumbnail, per the layout setting.
+                ArtworkProvider.toContentUri(node.artworkUri, if (grid) ArtworkSize.TILE else ArtworkSize.ROW)
+                    ?: folderIconUri(node.mediaId),
+            )
             .setIsBrowsable(node.browsable)
             .setIsPlayable(node.playable)
             .setMediaType(
@@ -71,8 +75,11 @@ object MediaItemMapper {
         return MediaItem.Builder().setMediaId(node.mediaId).setMediaMetadata(metadata).build()
     }
 
-    /** A queue-ready item: full metadata plus the stream URI the player needs. */
-    fun toPlayableItem(song: Song, mediaId: String): MediaItem {
+    /**
+     * A queue-ready item: full metadata plus the stream URI the player needs. [artSize] defaults
+     * to Now Playing size; browse rows pass [ArtworkSize.ROW].
+     */
+    fun toPlayableItem(song: Song, mediaId: String, artSize: Int = ArtworkSize.FULL): MediaItem {
         val metadata = MediaMetadata.Builder()
             .setTitle(song.title)
             .setDisplayTitle(song.title)
@@ -80,7 +87,7 @@ object MediaItemMapper {
             .setSubtitle(song.artist)
             .setAlbumTitle(song.album)
             .setAlbumArtist(song.artist)
-            .setArtworkUri(ArtworkProvider.toContentUri(song.artworkUri))
+            .setArtworkUri(ArtworkProvider.toContentUri(song.artworkUri, artSize))
             .setTrackNumber(song.trackNumber)
             .setDurationMs(song.durationMs)
             .setIsBrowsable(false)

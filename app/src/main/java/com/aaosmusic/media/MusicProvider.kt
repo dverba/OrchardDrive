@@ -18,6 +18,9 @@ interface MusicProvider {
     /** True when nothing personal can load until the user signs in (checked before browsing). */
     fun requiresSignIn(): Boolean = false
 
+    /** What AAOS shows at the root while [requiresSignIn]. */
+    fun signInMessage(): String = "Sign in to see your music"
+
     /** Optional: preload expensive data in the background (e.g. a large remote library). */
     suspend fun warmUp() {}
 

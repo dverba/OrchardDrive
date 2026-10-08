@@ -121,6 +121,10 @@ Also (2026-10-07):
 - Last queue and position persist: after a restart AAOS shows the last song, and Play resumes in place.
 - In-car diagnostics: in-memory log, crash capture, and **Send debug report** (no adb in the car).
 - Developer token comes from the relay (signed server-side); the `car` build carries no Apple credential.
+- Artwork is requested at the size shown (400 px tiles, 200 px rows, 600 px Now Playing), prefetched in
+  the background after the library loads (~3,100 images, ~140 MB in tile mode, paused while buffering) and
+  kept in a 300 MB LRU cache in filesDir. User-uploaded playlist covers (blobstore.apple.com) aren't shown.
+- Settings: high-quality (256 kbps) streaming on cellular, on by default; tiles or list for browse screens.
 
 Polestar: see [docs/POLESTAR_TESTING.md](docs/POLESTAR_TESTING.md).
 

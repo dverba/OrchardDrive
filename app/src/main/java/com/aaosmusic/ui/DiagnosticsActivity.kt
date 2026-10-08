@@ -90,6 +90,18 @@ class DiagnosticsActivity : ComponentActivity() {
                 textSize = 20f
                 setOnClickListener { startActivity(android.content.Intent(this@DiagnosticsActivity, AppleMusicTestActivity::class.java)) }
             })
+            // Apple answers an invalid Music User Token with the same 401/403 as an expired one,
+            // so this exercises the re-sign-in path without waiting ~6 months.
+            column.addView(Button(this).apply {
+                text = "Simulate expired sign-in"
+                textSize = 20f
+                setOnClickListener {
+                    val app = application as AAOSMusicApp
+                    if (app.appleTokens.userToken == null) return@setOnClickListener
+                    app.appleTokens.userToken = "expired-test-token"
+                    text = "Sign-in invalidated: open Media to see the prompt"
+                }
+            })
         }
 
         setContentView(SettingsUi.screen(this, "Diagnostics", column))

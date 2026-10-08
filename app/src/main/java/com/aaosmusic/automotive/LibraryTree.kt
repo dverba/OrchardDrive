@@ -111,7 +111,7 @@ class LibraryTree(
      */
     suspend fun getChildren(parentId: String): List<BrowseNode>? {
         if (parentId == MediaIds.ROOT && music.requiresSignIn()) {
-            throw MusicProviderException("Sign in to see your music", signInRequired = true)
+            throw MusicProviderException(music.signInMessage(), signInRequired = true)
         }
         return children(parentId)
     }
@@ -131,7 +131,7 @@ class LibraryTree(
         }
         is Parsed.Bucket -> libraryList(p.parent, songContext = parentId).filter { bucketOf(it.title) == p.letter }
         is Parsed.AlbumId -> music.getAlbum(p.id)?.songs?.playable()?.map { songNode(it, parentId) }
-        is Parsed.ArtistId -> music.getArtist(p.id)?.let { music.getArtistAlbums(p.id).map { albumNode(it) } }
+        is Parsed.ArtistId -> music.getArtist(p.id)?.let { music.getArtistAlbums(p.id).withPlayableSongs().map { albumNode(it) } }
         is Parsed.PlaylistId -> music.getPlaylist(p.id)?.songs?.playable()?.map { songNode(it, parentId) }
         is Parsed.SongId, is Parsed.SearchContext, is Parsed.Unknown -> null
     }
@@ -139,7 +139,7 @@ class LibraryTree(
     private suspend fun libraryList(listId: String, songContext: String = listId): List<BrowseNode> = when (listId) {
         MediaIds.PLAYLISTS -> music.getPlaylists().map { playlistNode(it) }
         MediaIds.ARTISTS -> music.getArtists().map { artistNode(it) }
-        MediaIds.ALBUMS -> music.getAlbums().map { albumNode(it) }
+        MediaIds.ALBUMS -> music.getAlbums().withPlayableSongs().map { albumNode(it) }
         MediaIds.SONGS -> music.getSongs().playable().map { songNode(it, songContext) }
         else -> emptyList()
     }
@@ -164,6 +164,20 @@ class LibraryTree(
      * hidden rather than shown as dead entries.
      */
     private fun List<Song>.playable() = filter { it.isPlayable }
+
+    /**
+     * Albums that would open to at least one playable song. Albums made only of the user's own
+     * uploads (no Apple Music catalog match) would otherwise open empty. Library songs don't carry
+     * an album id, so this matches on album title: an album is never hidden if any playable song
+     * has its title.
+     */
+    private suspend fun List<Album>.withPlayableSongs(): List<Album> {
+        val titles = music.getSongs().filter { it.isPlayable }.mapTo(HashSet()) { albumKey(it.album) }
+        if (titles.isEmpty()) return this // library songs unavailable: don't hide everything
+        return filter { albumKey(it.title) in titles }
+    }
+
+    private fun albumKey(title: String) = title.trim().lowercase()
 
     /** The node for [mediaId], or null if unknown. */
     suspend fun getItem(mediaId: String): BrowseNode? = when (val p = MediaIds.parse(mediaId)) {
