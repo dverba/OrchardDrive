@@ -3,8 +3,6 @@ package com.aaosmusic.automotive
 import android.app.PendingIntent
 import android.os.Bundle
 import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
-import androidx.media3.session.CommandButton
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaConstants
 import androidx.media3.session.MediaLibraryService.LibraryParams
@@ -28,8 +26,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.guava.future
 
 /**
- * Answers AAOS Media Center's browse/search/play requests from [LibraryTree], and handles the
- * shuffle/repeat custom actions.
+ * Answers AAOS Media Center's browse/search/play requests from [LibraryTree], and passes the Now
+ * Playing custom actions to [buttons].
  */
 class AutomotiveLibraryCallback(
     private val tree: LibraryTree,
@@ -38,6 +36,7 @@ class AutomotiveLibraryCallback(
     private val signInIntent: PendingIntent,
     private val lastQueue: LastQueueStore,
     private val layout: BrowseLayoutStore,
+    private val buttons: NowPlayingButtons,
 ) : MediaLibrarySession.Callback {
 
     /** Last search per query, served from onGetSearchResult. */
@@ -46,13 +45,10 @@ class AutomotiveLibraryCallback(
 
     override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
         AppLog.i(MEDIA_SESSION, "Controller connected: ${controller.packageName} (uid ${controller.uid})")
-        val sessionCommands = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
-            .add(SessionCommand(PlaybackButtons.ACTION_TOGGLE_SHUFFLE, Bundle.EMPTY))
-            .add(SessionCommand(PlaybackButtons.ACTION_CYCLE_REPEAT, Bundle.EMPTY))
-            .build()
+        val sessionCommands = NowPlayingButtons.withCommands(MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS)
         return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
             .setAvailableSessionCommands(sessionCommands)
-            .setMediaButtonPreferences(PlaybackButtons.forPlayer(session.player))
+            .setMediaButtonPreferences(buttons.current(session.player))
             .build()
     }
 
@@ -249,17 +245,9 @@ class AutomotiveLibraryCallback(
         customCommand: SessionCommand,
         args: Bundle,
     ): ListenableFuture<SessionResult> {
-        val player = session.player
-        when (customCommand.customAction) {
-            PlaybackButtons.ACTION_TOGGLE_SHUFFLE -> player.shuffleModeEnabled = !player.shuffleModeEnabled
-            PlaybackButtons.ACTION_CYCLE_REPEAT -> player.repeatMode = when (player.repeatMode) {
-                Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
-                Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
-                else -> Player.REPEAT_MODE_OFF
-            }
-            else -> return Futures.immediateFuture(SessionResult(SessionError.ERROR_NOT_SUPPORTED))
+        if (!buttons.handle(session.player, customCommand.customAction)) {
+            return Futures.immediateFuture(SessionResult(SessionError.ERROR_NOT_SUPPORTED))
         }
-        // Button icons are refreshed by the service's player listener.
         return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
     }
 
@@ -278,37 +266,3 @@ class AutomotiveLibraryCallback(
 }
 
 private const val SEARCH_DEBOUNCE_MS = 400L
-
-/** Shuffle/repeat buttons exposed to AAOS as custom actions. */
-object PlaybackButtons {
-    const val ACTION_TOGGLE_SHUFFLE = "com.aaosmusic.TOGGLE_SHUFFLE"
-    const val ACTION_CYCLE_REPEAT = "com.aaosmusic.CYCLE_REPEAT"
-
-    fun forPlayer(player: Player): ImmutableList<CommandButton> {
-        val shuffle = CommandButton.Builder(
-            if (player.shuffleModeEnabled) CommandButton.ICON_SHUFFLE_ON else CommandButton.ICON_SHUFFLE_OFF,
-        )
-            .setDisplayName(if (player.shuffleModeEnabled) "Shuffle on" else "Shuffle off")
-            .setSessionCommand(SessionCommand(ACTION_TOGGLE_SHUFFLE, Bundle.EMPTY))
-            .setSlots(CommandButton.SLOT_OVERFLOW)
-            .build()
-        val repeat = CommandButton.Builder(
-            when (player.repeatMode) {
-                Player.REPEAT_MODE_ONE -> CommandButton.ICON_REPEAT_ONE
-                Player.REPEAT_MODE_ALL -> CommandButton.ICON_REPEAT_ALL
-                else -> CommandButton.ICON_REPEAT_OFF
-            },
-        )
-            .setDisplayName(
-                when (player.repeatMode) {
-                    Player.REPEAT_MODE_ONE -> "Repeat one"
-                    Player.REPEAT_MODE_ALL -> "Repeat all"
-                    else -> "Repeat off"
-                },
-            )
-            .setSessionCommand(SessionCommand(ACTION_CYCLE_REPEAT, Bundle.EMPTY))
-            .setSlots(CommandButton.SLOT_OVERFLOW)
-            .build()
-        return ImmutableList.of(shuffle, repeat)
-    }
-}

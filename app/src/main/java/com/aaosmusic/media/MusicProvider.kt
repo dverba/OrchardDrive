@@ -4,8 +4,10 @@ import com.aaosmusic.media.models.Album
 import com.aaosmusic.media.models.Artist
 import com.aaosmusic.media.models.MusicItem
 import com.aaosmusic.media.models.Playlist
+import com.aaosmusic.media.models.Rating
 import com.aaosmusic.media.models.SearchResults
 import com.aaosmusic.media.models.Song
+import com.aaosmusic.media.models.SongLibraryState
 
 /**
  * Source of browsable/searchable music metadata. The AAOS layer only ever talks to this
@@ -44,4 +46,16 @@ interface MusicProvider {
     /** Returned playlist includes its songs. */
     suspend fun getPlaylist(id: String): Playlist?
     suspend fun getSong(id: String): Song?
+
+    /**
+     * The user's rating and library state for [song], or null when this provider can't edit the
+     * user's library (the Now Playing buttons are then hidden).
+     */
+    suspend fun getLibraryState(song: Song): SongLibraryState? = null
+
+    suspend fun setRating(song: Song, rating: Rating): Unit = throw UnsupportedOperationException()
+    suspend fun addSongToLibrary(song: Song): Unit = throw UnsupportedOperationException()
+
+    /** Adds the whole album [song] is on. */
+    suspend fun addAlbumToLibrary(song: Song): Unit = throw UnsupportedOperationException()
 }

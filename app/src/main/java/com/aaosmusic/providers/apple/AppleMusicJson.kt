@@ -4,6 +4,7 @@ import com.aaosmusic.media.models.Album
 import com.aaosmusic.media.models.Artist
 import com.aaosmusic.media.models.MusicItem
 import com.aaosmusic.media.models.Playlist
+import com.aaosmusic.media.models.Rating
 import com.aaosmusic.media.models.SearchResults
 import com.aaosmusic.media.models.Song
 import kotlinx.serialization.json.Json
@@ -126,6 +127,35 @@ object AppleMusicJson {
         val description = a["description"]?.jsonObject?.let { it.str("short") ?: it.str("standard") } ?: a.str("curatorName")
         val songs = r.relationship("tracks").filter { it.str("type") == "songs" || it.str("type") == "library-songs" }.map(::song)
         return Playlist(r.str("id")!!, a.str("name").orEmpty(), description, artwork(a), songs)
+    }
+
+    /** Rating resource from `/v1/me/ratings/...`: value 1 is Love, -1 is Dislike. */
+    fun parseRating(body: String): Rating =
+        when (parsePage(body).items.firstOrNull()?.attrs()?.get("value")?.jsonPrimitive?.intOrNull) {
+            1 -> Rating.LOVE
+            -1 -> Rating.DISLIKE
+            else -> Rating.NONE
+        }
+
+    /** Request body for PUT `/v1/me/ratings/...`. [rating] must not be [Rating.NONE] (that's a DELETE). */
+    fun ratingBody(rating: Rating): String =
+        """{"type":"rating","attributes":{"value":${if (rating == Rating.LOVE) 1 else -1}}}"""
+
+    /** Catalog album id of a catalog song (from its `albums` relationship). */
+    fun albumIdOf(song: JsonObject): String? = song.relationship("albums").firstOrNull()?.str("id")
+
+    /** Whether a catalog resource fetched with `include=library` is in the user's library. */
+    fun inLibrary(r: JsonObject): Boolean = r.relationship("library").isNotEmpty()
+
+    /**
+     * Whether every track of a catalog album (fetched with `include=library`) is in the library.
+     * Adding one song creates a partial library album, so compare track counts.
+     */
+    fun albumFullyInLibrary(album: JsonObject): Boolean {
+        val copy = album.relationship("library").firstOrNull() ?: return false
+        val total = album.attrs()["trackCount"]?.jsonPrimitive?.intOrNull ?: return true
+        val have = copy.attrs()["trackCount"]?.jsonPrimitive?.intOrNull ?: return true
+        return have >= total
     }
 
     private fun artwork(attrs: JsonObject): String? =

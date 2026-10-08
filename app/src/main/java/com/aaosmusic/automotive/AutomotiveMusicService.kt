@@ -29,6 +29,7 @@ class AutomotiveMusicService : MediaLibraryService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var session: MediaLibrarySession? = null
+    private lateinit var buttons: NowPlayingButtons
     private lateinit var lastQueue: LastQueueStore
     private lateinit var layout: BrowseLayoutStore
     private lateinit var prefetcher: ArtworkPrefetcher
@@ -49,11 +50,14 @@ class AutomotiveMusicService : MediaLibraryService() {
         )
         lastQueue = LastQueueStore(this)
         layout = BrowseLayoutStore(this)
-        val librarySession = MediaLibrarySession.Builder(this, player, AutomotiveLibraryCallback(tree, scope, sessionActivity, lastQueue, layout))
+        buttons = NowPlayingButtons(app.repository, scope)
+        val librarySession = MediaLibrarySession.Builder(this, player, AutomotiveLibraryCallback(tree, scope, sessionActivity, lastQueue, layout, buttons))
             .setSessionActivity(sessionActivity)
-            .setMediaButtonPreferences(PlaybackButtons.forPlayer(player))
+            .setMediaButtonPreferences(buttons.current(player))
             .build()
-        player.addListener(PlayerLogger(librarySession))
+        buttons.session = librarySession
+        player.addListener(buttons)
+        player.addListener(PlayerLogger())
         player.addListener(QueueSaver())
         player.addListener(StaleProgressClearer(librarySession))
         player.addListener(object : Player.Listener {
@@ -113,6 +117,7 @@ class AutomotiveMusicService : MediaLibraryService() {
             AppLog.i(MEDIA_SESSION, "Account changed; refreshing library")
             listOf(MediaIds.ROOT, MediaIds.HOME, MediaIds.LIBRARY).forEach { s.notifyChildrenChanged(it, Int.MAX_VALUE, null) }
         }
+        buttons.reload()
         if (app.appleTokens.userToken == null) {
             prefetchJob?.cancel()
             lastQueue.clear()
@@ -172,7 +177,6 @@ class AutomotiveMusicService : MediaLibraryService() {
         songs = getString(R.string.browse_songs),
     )
 
-    /** Logs playback transitions and keeps the shuffle/repeat button icons current. */
     /**
      * Media Center draws a progress bar on the browse row of the playing song but never removes it
      * when the song changes, so every song played from a list kept a frozen bar (looking like
@@ -190,7 +194,8 @@ class AutomotiveMusicService : MediaLibraryService() {
         }
     }
 
-    private class PlayerLogger(private val session: MediaLibrarySession) : Player.Listener {
+    /** Logs playback transitions. */
+    private class PlayerLogger : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             val m = mediaItem?.mediaMetadata
             AppLog.i(PLAYBACK, "Now playing: ${mediaItem?.mediaId} '${m?.title}' by '${m?.artist}' (reason $reason)")
@@ -217,12 +222,10 @@ class AutomotiveMusicService : MediaLibraryService() {
 
         override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
             AppLog.i(PLAYBACK, "Shuffle: $shuffleModeEnabled")
-            session.setMediaButtonPreferences(PlaybackButtons.forPlayer(session.player))
         }
 
         override fun onRepeatModeChanged(repeatMode: Int) {
             AppLog.i(PLAYBACK, "Repeat mode: $repeatMode")
-            session.setMediaButtonPreferences(PlaybackButtons.forPlayer(session.player))
         }
     }
 }

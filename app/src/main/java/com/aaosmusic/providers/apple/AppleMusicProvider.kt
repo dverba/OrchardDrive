@@ -1,12 +1,15 @@
 package com.aaosmusic.providers.apple
 
 import com.aaosmusic.media.MusicProvider
+import com.aaosmusic.media.MusicProviderException
 import com.aaosmusic.media.models.Album
 import com.aaosmusic.media.models.Artist
 import com.aaosmusic.media.models.MusicItem
 import com.aaosmusic.media.models.Playlist
+import com.aaosmusic.media.models.Rating
 import com.aaosmusic.media.models.SearchResults
 import com.aaosmusic.media.models.Song
+import com.aaosmusic.media.models.SongLibraryState
 import com.aaosmusic.repository.MusicRepository
 import com.aaosmusic.util.AppLog
 import com.aaosmusic.util.AppLog.Category.APPLE_API
@@ -39,6 +42,8 @@ class AppleMusicProvider(
     private val playlists = ConcurrentHashMap<String, Playlist>()
     private val artists = ConcurrentHashMap<String, Artist>()
     private val lists = ConcurrentHashMap<String, Pair<Long, List<*>>>()
+    /** Catalog album id by catalog song id, learned while loading a song's library state. */
+    private val albumOfSong = ConcurrentHashMap<String, String>()
     /** In-flight loads by key, so concurrent requests for the same list/item share one fetch. */
     private val inFlight = ConcurrentHashMap<String, Deferred<Any?>>()
 
@@ -49,7 +54,7 @@ class AppleMusicProvider(
 
     override fun clearCache() {
         storefront = null
-        listOf(songs, albums, playlists, artists, lists).forEach { it.clear() }
+        listOf(songs, albums, playlists, artists, lists, albumOfSong).forEach { it.clear() }
     }
 
     /** Loads the big library lists in the background so browsing them later is instant. */
@@ -134,6 +139,68 @@ class AppleMusicProvider(
         val path = if (id.isLibraryId()) "/v1/me/library/songs/$id" else "/v1/catalog/${storefront()}/songs/$id"
         return fetchOne(path)?.let(AppleMusicJson::song)?.also { songs[id] = it }
     }
+
+    /** Ratings and library membership work on catalog ids; library-only (uploaded) songs have none. */
+    override suspend fun getLibraryState(song: Song): SongLibraryState? {
+        val songId = song.catalogId() ?: return null
+        val sf = storefront()
+        return coroutineScope {
+            val rating = async { getRating(songId) }
+            val catalogSong = fetchWithLibrary("/v1/catalog/$sf/songs/$songId?include=albums,library")
+            val albumId = catalogSong?.let(AppleMusicJson::albumIdOf)?.also { albumOfSong[songId] = it }
+            val album = albumId?.let { fetchWithLibrary("/v1/catalog/$sf/albums/$it?include=library") }
+            SongLibraryState(
+                rating = rating.await(),
+                songInLibrary = catalogSong?.let(AppleMusicJson::inLibrary) ?: false,
+                albumInLibrary = album?.let(AppleMusicJson::albumFullyInLibrary),
+            )
+        }
+    }
+
+    override suspend fun setRating(song: Song, rating: Rating) {
+        val path = "/v1/me/ratings/songs/${song.requireCatalogId()}"
+        if (rating == Rating.NONE) {
+            try { api.send("DELETE", path) } catch (e: AppleMusicApiException) { if (e.status != 404) throw e }
+        } else {
+            api.send("PUT", path, AppleMusicJson.ratingBody(rating))
+        }
+        AppLog.i(APPLE_API, "Rated '${song.title}': $rating")
+    }
+
+    override suspend fun addSongToLibrary(song: Song) = addToLibrary("songs", song.requireCatalogId(), song.title)
+
+    override suspend fun addAlbumToLibrary(song: Song) {
+        val songId = song.requireCatalogId()
+        val albumId = albumOfSong[songId]
+            ?: fetchOne("/v1/catalog/${storefront()}/songs/$songId")?.let(AppleMusicJson::albumIdOf)
+            ?: throw MusicProviderException("'${song.title}' has no album to add")
+        addToLibrary("albums", albumId, song.album)
+    }
+
+    private suspend fun getRating(catalogSongId: String): Rating = try {
+        AppleMusicJson.parseRating(api.get("/v1/me/ratings/songs/$catalogSongId"))
+    } catch (e: AppleMusicApiException) {
+        if (e.status == 404) Rating.NONE else throw e // 404: never rated
+    }
+
+    /** A catalog resource with its `library` relationship, which needs the user token. */
+    private suspend fun fetchWithLibrary(path: String): JsonObject? = try {
+        AppleMusicJson.parsePage(api.get(path, withUserToken = true)).items.firstOrNull()
+    } catch (e: AppleMusicApiException) {
+        if (e.status == 404) null else throw e
+    }
+
+    private suspend fun addToLibrary(type: String, catalogId: String, title: String) {
+        api.send("POST", "/v1/me/library?ids%5B$type%5D=$catalogId")
+        AppLog.i(APPLE_API, "Added $type '$title' to library")
+        // The library lists changed: refetch them next time they're browsed.
+        listOf("library-songs", "library-albums", "library-artists").forEach(lists::remove)
+    }
+
+    private fun Song.catalogId(): String? = AppleMusicJson.catalogIdFromPlaybackUri(playbackUri)
+
+    private fun Song.requireCatalogId(): String =
+        catalogId() ?: throw MusicProviderException("'$title' isn't in the Apple Music catalog")
 
     private suspend fun storefront(): String = storefront ?: run {
         val sf = runCatching { api.userStorefront() }

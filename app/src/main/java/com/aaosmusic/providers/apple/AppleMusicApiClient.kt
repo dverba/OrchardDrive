@@ -39,7 +39,15 @@ class AppleMusicApiClient(private val tokens: AppleMusicTokenStore) {
         if (withUserToken && tokens.userToken == null) {
             throw AppleMusicApiException(AppleMusicApiException.NO_USER_TOKEN, "Not signed in to Apple Music")
         }
-        return request(path, withUserToken)
+        return request("GET", path, withUserToken)
+    }
+
+    /** PUT/POST/DELETE on the user's account (`/v1/me/...`); [jsonBody] is sent as the request body. */
+    suspend fun send(method: String, path: String, jsonBody: String? = null): String {
+        if (tokens.userToken == null) {
+            throw AppleMusicApiException(AppleMusicApiException.NO_USER_TOKEN, "Not signed in to Apple Music")
+        }
+        return request(method, path, withUserToken = true, jsonBody)
     }
 
     /**
@@ -84,7 +92,7 @@ class AppleMusicApiClient(private val tokens: AppleMusicTokenStore) {
         }
     }
 
-    private suspend fun request(path: String, withUserToken: Boolean): String = withContext(Dispatchers.IO) {
+    private suspend fun request(method: String, path: String, withUserToken: Boolean, jsonBody: String? = null): String = withContext(Dispatchers.IO) {
         val developerToken = tokens.ensureDeveloperToken()
             ?: throw AppleMusicApiException(0, "No Apple developer token (relay unreachable or not configured)")
         val conn = (URL(BASE_URL + path).openConnection() as HttpURLConnection).apply {
@@ -92,14 +100,20 @@ class AppleMusicApiClient(private val tokens: AppleMusicTokenStore) {
             readTimeout = 15_000
             setRequestProperty("Authorization", "Bearer $developerToken")
             if (withUserToken) tokens.userToken?.let { setRequestProperty("Music-User-Token", it) }
+            requestMethod = method
+            if (jsonBody != null) {
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json")
+            }
         }
         try {
+            jsonBody?.let { body -> conn.outputStream.use { it.write(body.toByteArray()) } }
             val status = conn.responseCode
             lastStatus = status
-            AppLog.d(APPLE_API, "GET ${path.substringBefore('?')} → $status")
+            AppLog.d(APPLE_API, "$method ${path.substringBefore('?')} → $status")
             if (status !in 200..299) {
                 val err = conn.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
-                AppLog.w(APPLE_API, "GET ${path.substringBefore('?')} failed: HTTP $status ${err.take(300)}")
+                AppLog.w(APPLE_API, "$method ${path.substringBefore('?')} failed: HTTP $status ${err.take(300)}")
                 // 403 with a Music-User-Token means Apple no longer accepts it (expired or revoked).
                 if (status == 403 && withUserToken) tokens.markUserTokenRejected()
                 // Shown to the user by Media Center, so plain language rather than Apple's JSON.

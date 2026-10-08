@@ -2,6 +2,8 @@ package com.aaosmusic.providers.apple
 
 import com.aaosmusic.media.models.Album
 import com.aaosmusic.media.models.Playlist
+import com.aaosmusic.media.models.Rating
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -94,5 +96,30 @@ class AppleMusicJsonTest {
         assertEquals(listOf("Daft Punk"), parsed.results.artists.map { it.name })
         assertTrue(parsed.results.albums.isEmpty())
         assertEquals("https://audio-ssl.itunes.apple.com/x.m4a", parsed.previews["1"])
+    }
+
+    @Test fun ratingValuesMapToLoveAndDislike() {
+        fun rating(value: Int) = AppleMusicJson.parseRating("""{"data": [{"id": "1", "type": "ratings", "attributes": {"value": $value}}]}""")
+        assertEquals(Rating.LOVE, rating(1))
+        assertEquals(Rating.DISLIKE, rating(-1))
+        assertEquals("""{"type":"rating","attributes":{"value":-1}}""", AppleMusicJson.ratingBody(Rating.DISLIKE))
+    }
+
+    @Test fun catalogSongKnowsItsAlbumAndLibraryCopy() {
+        val song = AppleMusicJson.parsePage("""{"data": [{"id": "697195462", "type": "songs", "relationships": {
+            "albums": {"data": [{"id": "697194953", "type": "albums"}]},
+            "library": {"data": [{"id": "i.abc", "type": "library-songs"}]}}}]}""").items.single()
+        assertEquals("697194953", AppleMusicJson.albumIdOf(song))
+        assertTrue(AppleMusicJson.inLibrary(song))
+    }
+
+    @Test fun partlyAddedAlbumIsNotInLibrary() {
+        fun album(libraryTracks: Int?) = AppleMusicJson.parsePage("""{"data": [{"id": "697194953", "type": "albums",
+            "attributes": {"trackCount": 14}, "relationships": {"library": {"data": [""" +
+            (libraryTracks?.let { """{"id": "l.x", "type": "library-albums", "attributes": {"trackCount": $it}}""" } ?: "") +
+            """]}}}]}""").items.single()
+        assertFalse(AppleMusicJson.albumFullyInLibrary(album(null)))
+        assertFalse(AppleMusicJson.albumFullyInLibrary(album(1)))
+        assertTrue(AppleMusicJson.albumFullyInLibrary(album(14)))
     }
 }

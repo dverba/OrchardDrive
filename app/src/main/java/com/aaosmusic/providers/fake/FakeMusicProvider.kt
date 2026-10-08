@@ -5,9 +5,12 @@ import com.aaosmusic.media.models.Album
 import com.aaosmusic.media.models.Artist
 import com.aaosmusic.media.models.MusicItem
 import com.aaosmusic.media.models.Playlist
+import com.aaosmusic.media.models.Rating
 import com.aaosmusic.media.models.SearchResults
 import com.aaosmusic.media.models.Song
+import com.aaosmusic.media.models.SongLibraryState
 import kotlinx.coroutines.delay
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * In-memory catalog: 3 artists, 3 albums, 10 songs, 3 playlists.
@@ -30,6 +33,9 @@ class FakeMusicProvider(
     )
 
     private val songs: List<Song>
+    /** Ratings and library additions, kept in memory so the Now Playing buttons can be exercised. */
+    private val ratings = ConcurrentHashMap<String, Rating>()
+    private val addedSongs = ConcurrentHashMap.newKeySet<String>()
     private val albums: List<Album>
     private val playlists: List<Playlist>
 
@@ -114,6 +120,21 @@ class FakeMusicProvider(
 
     override suspend fun getPlaylist(id: String): Playlist? = simulate { playlists.find { it.id == id } }
     override suspend fun getSong(id: String): Song? = simulate { songs.find { it.id == id } }
+
+    override suspend fun getLibraryState(song: Song): SongLibraryState = simulate {
+        val albumSongs = albums.find { it.id == song.albumId }?.songs
+        SongLibraryState(
+            rating = ratings[song.id] ?: Rating.NONE,
+            songInLibrary = song.id in addedSongs,
+            albumInLibrary = albumSongs?.all { it.id in addedSongs },
+        )
+    }
+
+    override suspend fun setRating(song: Song, rating: Rating) = simulate { ratings[song.id] = rating }
+    override suspend fun addSongToLibrary(song: Song) = simulate { addedSongs += song.id; Unit }
+    override suspend fun addAlbumToLibrary(song: Song) = simulate {
+        albums.find { it.id == song.albumId }?.songs?.forEach { addedSongs += it.id }; Unit
+    }
 
     private suspend inline fun <T> simulate(block: () -> T): T {
         if (latencyMs > 0) delay(latencyMs)

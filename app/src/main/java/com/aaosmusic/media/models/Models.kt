@@ -61,3 +61,14 @@ data class SearchResults(
 ) {
     val isEmpty: Boolean get() = songs.isEmpty() && albums.isEmpty() && artists.isEmpty() && playlists.isEmpty()
 }
+
+/** The user's opinion of a song (Apple Music's Love / Suggest Less). */
+enum class Rating { NONE, LOVE, DISLIKE }
+
+/** The user's rating and library state for one song, shown as Now Playing buttons. */
+data class SongLibraryState(
+    val rating: Rating = Rating.NONE,
+    val songInLibrary: Boolean = false,
+    /** Every track of the song's album is in the library. Null when the song has no album to add. */
+    val albumInLibrary: Boolean? = false,
+)
