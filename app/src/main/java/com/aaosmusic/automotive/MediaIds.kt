@@ -21,6 +21,9 @@ object MediaIds {
     const val ARTISTS = "library/artists"
     const val ALBUMS = "library/albums"
     const val SONGS = "library/songs"
+    /** Playlists in an explicit order; each is the top "sort" row of the other order's list. */
+    const val PLAYLISTS_BY_DATE = "library/playlists/by-date"
+    const val PLAYLISTS_A_Z = "library/playlists/a-z"
 
     private const val ALBUM = "album:"
     private const val ARTIST = "artist:"
@@ -59,7 +62,7 @@ object MediaIds {
 
     val FIXED = setOf(
         ROOT, HOME, LIBRARY, RECENT, RECOMMENDED, MADE_FOR_YOU, HEAVY_ROTATION, RECENTLY_ADDED, CHARTS,
-        PLAYLISTS, ARTISTS, ALBUMS, SONGS,
+        PLAYLISTS, ARTISTS, ALBUMS, SONGS, PLAYLISTS_BY_DATE, PLAYLISTS_A_Z,
     )
 
     fun parse(mediaId: String): Parsed = when {

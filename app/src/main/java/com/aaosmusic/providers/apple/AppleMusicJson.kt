@@ -144,7 +144,7 @@ object AppleMusicJson {
         val a = r.attrs()
         val description = a["description"]?.jsonObject?.let { it.str("short") ?: it.str("standard") } ?: a.str("curatorName")
         val songs = r.relationship("tracks").filter { it.str("type") == "songs" || it.str("type") == "library-songs" }.map(::song)
-        return Playlist(r.str("id")!!, a.str("name").orEmpty(), description, artwork(a), songs)
+        return Playlist(r.str("id")!!, a.str("name").orEmpty(), description, artwork(a), songs, dateAdded = a.str("dateAdded"))
     }
 
     /** Rating resource from `/v1/me/ratings/...`: value 1 is Love, -1 is Dislike. */

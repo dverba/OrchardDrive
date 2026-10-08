@@ -12,6 +12,8 @@
     <string name="browse_playlists">Playlists</string>
     <string name="browse_artists">Artists</string>
     <string name="browse_albums">Albums</string>
+    <string name="browse_sort_by_date_added">Sort by Date Added</string>
+    <string name="browse_sort_alphabetically">Sort A–Z</string>
     <string name="browse_songs">Songs</string>
     <string name="action_shuffle_on">Shuffle on</string>
     <string name="action_shuffle_off">Shuffle off</string>

@@ -32,6 +32,7 @@ class AutomotiveMusicService : MediaLibraryService() {
     private lateinit var buttons: NowPlayingButtons
     private lateinit var lastQueue: LastQueueStore
     private lateinit var layout: BrowseLayoutStore
+    private lateinit var playlistSort: PlaylistSortStore
     private lateinit var prefetcher: ArtworkPrefetcher
     private var prefetchJob: Job? = null
     @Volatile private var buffering = false
@@ -43,7 +44,8 @@ class AutomotiveMusicService : MediaLibraryService() {
         AppLog.i(MEDIA_SESSION, "Service created (provider: ${app.repository.providerName})")
 
         val player = app.playbackProvider.createPlayer(this)
-        val tree = LibraryTree(app.repository, labels())
+        playlistSort = PlaylistSortStore(this)
+        val tree = LibraryTree(app.repository, labels(), playlistOrder = playlistSort)
         val sessionActivity = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
@@ -67,6 +69,7 @@ class AutomotiveMusicService : MediaLibraryService() {
         session = librarySession
         app.appleTokens.addListener(onAccountChanged)
         layout.addListener(onLayoutChanged)
+        playlistSort.addListener(onPlaylistSortChanged)
 
         // Show the last song in AAOS right away (not playing; Play resumes from the saved position).
         lastQueue.restore()?.let {
@@ -135,6 +138,12 @@ class AutomotiveMusicService : MediaLibraryService() {
         if (!(application as AAOSMusicApp).repository.requiresSignIn()) prefetchArtwork()
     }
 
+    /** A sort row was tapped: re-send Playlists in the new order. */
+    private val onPlaylistSortChanged: () -> Unit = {
+        AppLog.i(MEDIA_SESSION, "Playlist sort changed (by date added: ${playlistSort.byDateAdded})")
+        session?.notifyChildrenChanged(MediaIds.PLAYLISTS, Int.MAX_VALUE, null)
+    }
+
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
 
     /**
@@ -156,6 +165,7 @@ class AutomotiveMusicService : MediaLibraryService() {
         session?.player?.let(lastQueue::save)
         (application as AAOSMusicApp).appleTokens.removeListener(onAccountChanged)
         layout.removeListener(onLayoutChanged)
+        playlistSort.removeListener(onPlaylistSortChanged)
         session?.run {
             player.release()
             release()
@@ -180,6 +190,8 @@ class AutomotiveMusicService : MediaLibraryService() {
         artists = getString(R.string.browse_artists),
         albums = getString(R.string.browse_albums),
         songs = getString(R.string.browse_songs),
+        sortByDateAdded = getString(R.string.browse_sort_by_date_added),
+        sortAlphabetically = getString(R.string.browse_sort_alphabetically),
     )
 
     /**

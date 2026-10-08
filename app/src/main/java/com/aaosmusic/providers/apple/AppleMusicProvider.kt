@@ -136,7 +136,8 @@ class AppleMusicProvider(
     }.onEach { artists[it.id] = it }
 
     override suspend fun getPlaylists(): List<Playlist> = cachedList("library-playlists", minutes = LIBRARY_TTL_MIN) {
-        api.getAllParallel("/v1/me/library/playlists", maxItems = MAX_LIBRARY_ITEMS).map(AppleMusicJson::playlist)
+        // Apple lists a few nameless system playlists that open empty; hide them.
+        api.getAllParallel("/v1/me/library/playlists", maxItems = MAX_LIBRARY_ITEMS).map(AppleMusicJson::playlist).filter { it.title.isNotBlank() }
     }
 
     override suspend fun getSongs(): List<Song> = cachedList("library-songs", minutes = LIBRARY_TTL_MIN) {

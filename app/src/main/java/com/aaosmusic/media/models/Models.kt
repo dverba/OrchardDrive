@@ -51,6 +51,11 @@ data class Playlist(
     val description: String?,
     override val artworkUri: String?,
     val songs: List<Song> = emptyList(),
+    /**
+     * When the user added it to their library, as an ISO-8601 UTC timestamp (sorts as text). Null
+     * when unknown (Apple omits it for some playlists the user made); those sort last.
+     */
+    val dateAdded: String? = null,
 ) : MusicItem
 
 data class SearchResults(

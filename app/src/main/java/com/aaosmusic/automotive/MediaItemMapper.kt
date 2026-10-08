@@ -25,10 +25,14 @@ object MediaItemMapper {
         MediaIds.RECENTLY_ADDED to "ic_folder_recently_added",
         MediaIds.CHARTS to "ic_folder_charts",
         MediaIds.PLAYLISTS to "ic_folder_playlists",
+        MediaIds.PLAYLISTS_BY_DATE to "ic_sort",
+        MediaIds.PLAYLISTS_A_Z to "ic_sort",
         MediaIds.ARTISTS to "ic_folder_artists",
         MediaIds.ALBUMS to "ic_folder_albums",
         MediaIds.SONGS to "ic_folder_songs",
     )
+
+    private val SORT_ROWS = setOf(MediaIds.PLAYLISTS_BY_DATE, MediaIds.PLAYLISTS_A_Z)
 
     private fun folderIconUri(mediaId: String): Uri? =
         folderIcons[mediaId]?.let { Uri.parse("android.resource://${BuildConfig.APPLICATION_ID}/drawable/$it") }
@@ -51,8 +55,8 @@ object MediaItemMapper {
             extras.putInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_BROWSABLE, childStyle)
             extras.putInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_PLAYABLE, MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM)
         }
-        if (node.kind == BrowseNode.Kind.BUCKET) {
-            // Letter folders themselves read as a compact list, whatever their contents use.
+        if (node.kind == BrowseNode.Kind.BUCKET || node.mediaId in SORT_ROWS) {
+            // Letter folders and sort rows read as a compact list, whatever their siblings use.
             extras.putInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_SINGLE_ITEM, MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM)
         }
         val metadata = MediaMetadata.Builder()

@@ -81,11 +81,11 @@ class FakeMusicProvider(
         fun pick(vararg ids: String) = ids.map { id -> songs.first { it.id == id } }
         playlists = listOf(
             Playlist("pl1", "Driving Mix", "Upbeat tracks for the road", artworkBaseUri + "art_playlist_1",
-                pick("s1", "s5", "s8", "s2", "s9")),
+                pick("s1", "s5", "s8", "s2", "s9"), dateAdded = "2026-03-01T10:00:00Z"),
             Playlist("pl2", "Chill Commute", "Low-key listening", artworkBaseUri + "art_playlist_2",
-                pick("s3", "s6", "s10")),
+                pick("s3", "s6", "s10"), dateAdded = "2026-09-15T10:00:00Z"),
             Playlist("pl3", "Favorites", null, artworkBaseUri + "art_playlist_3",
-                pick("s1", "s4", "s7", "s10")),
+                pick("s1", "s4", "s7", "s10"), dateAdded = "2026-10-01T10:00:00Z"),
         )
     }
 

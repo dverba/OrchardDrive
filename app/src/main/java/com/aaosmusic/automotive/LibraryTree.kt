@@ -79,7 +79,14 @@ class LibraryTree(
     private val labels: Labels = Labels(),
     /** Library lists longer than this are split into A–Z letter folders (a 14k-row list is unusable in a car). */
     private val bucketThreshold: Int = 300,
+    /** Remembers the Playlists order the user last picked from its top row. */
+    private val playlistOrder: PlaylistOrder = object : PlaylistOrder { override var byDateAdded = false },
 ) {
+    /** The Playlists order: newest added first, or A–Z. */
+    interface PlaylistOrder {
+        var byDateAdded: Boolean
+    }
+
     data class Labels(
         val appName: String = "AAOSMusic for Apple Music",
         val home: String = "Home",
@@ -95,6 +102,8 @@ class LibraryTree(
         val artists: String = "Artists",
         val albums: String = "Albums",
         val songs: String = "Songs",
+        val sortByDateAdded: String = "Sort by Date Added",
+        val sortAlphabetically: String = "Sort A–Z",
     )
 
     private fun folder(id: String, title: String) =
@@ -114,6 +123,8 @@ class LibraryTree(
         folder(MediaIds.ARTISTS, labels.artists),
         folder(MediaIds.ALBUMS, labels.albums),
         folder(MediaIds.SONGS, labels.songs),
+        folder(MediaIds.PLAYLISTS_BY_DATE, labels.sortByDateAdded),
+        folder(MediaIds.PLAYLISTS_A_Z, labels.sortAlphabetically),
     ).associateBy { it.mediaId }
 
     val root: BrowseNode get() = fixedNodes.getValue(MediaIds.ROOT)
@@ -144,7 +155,14 @@ class LibraryTree(
             MediaIds.HEAVY_ROTATION -> music.getHeavyRotation().nodes(p.id)
             MediaIds.RECENTLY_ADDED -> music.getRecentlyAdded().nodes(p.id)
             MediaIds.CHARTS -> shelves(p.id).map { shelfNode(p.id, it) }
-            MediaIds.PLAYLISTS, MediaIds.ARTISTS, MediaIds.ALBUMS, MediaIds.SONGS -> {
+            MediaIds.PLAYLISTS -> playlists()
+            // Opening either sort row switches the order and remembers it for next time.
+            MediaIds.PLAYLISTS_BY_DATE, MediaIds.PLAYLISTS_A_Z -> {
+                playlistOrder.byDateAdded = p.id == MediaIds.PLAYLISTS_BY_DATE
+                playlists()
+            }
+            // Opening either sort row switches the order and remembers it for next time.
+            MediaIds.ARTISTS, MediaIds.ALBUMS, MediaIds.SONGS -> {
                 val all = libraryList(p.id)
                 if (all.size <= bucketThreshold) all else bucketFolders(p.id, all)
             }
@@ -186,8 +204,21 @@ class LibraryTree(
         }
     }
 
+    /**
+     * The other order's sort row, then the playlists in the remembered order. A–Z folders only
+     * make sense for the alphabetical order.
+     */
+    private suspend fun playlists(): List<BrowseNode> {
+        val byDate = playlistOrder.byDateAdded
+        val toggle = fixedNodes.getValue(if (byDate) MediaIds.PLAYLISTS_A_Z else MediaIds.PLAYLISTS_BY_DATE)
+        val all = libraryList(MediaIds.PLAYLISTS)
+        return listOf(toggle) + if (byDate || all.size <= bucketThreshold) all else bucketFolders(MediaIds.PLAYLISTS, all)
+    }
+
     private suspend fun libraryList(listId: String, songContext: String = listId): List<BrowseNode> = when (listId) {
-        MediaIds.PLAYLISTS -> music.getPlaylists().map { playlistNode(it) }
+        MediaIds.PLAYLISTS -> music.getPlaylists()
+            .let { list -> if (playlistOrder.byDateAdded) list.sortedByDescending { it.dateAdded.orEmpty() } else list.sortedBy { it.title.lowercase() } }
+            .map { playlistNode(it) }
         MediaIds.ARTISTS -> music.getArtists().map { artistNode(it) }
         MediaIds.ALBUMS -> music.getAlbums().withPlayableSongs().map { albumNode(it) }
         MediaIds.SONGS -> music.getSongs().playable().map { songNode(it, songContext) }

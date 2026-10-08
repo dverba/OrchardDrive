@@ -29,7 +29,7 @@ class LibraryTreeTest {
     @Test fun libraryCounts() = runTest {
         assertEquals(3, ids(MediaIds.ALBUMS).size)
         assertEquals(3, ids(MediaIds.ARTISTS).size)
-        assertEquals(3, ids(MediaIds.PLAYLISTS).size)
+        assertEquals(1 + 3, ids(MediaIds.PLAYLISTS).size) // sort row + playlists
         assertEquals(10, ids(MediaIds.SONGS).size)
     }
 
@@ -120,6 +120,41 @@ class LibraryTreeTest {
         assertTrue(tree.search("   ").isEmpty())
         assertNull(tree.resolveSearchQueue("zzz"))
     }
+
+    @Test fun recentlyPlayedHasContainerAndSongSections() = runTest {
+        val recent = tree.getChildren(MediaIds.RECENT)!!
+        assertEquals(listOf("Albums & Playlists", "Songs"), recent.map { it.groupTitle }.distinct())
+        assertTrue(recent.last().playable)
+    }
+
+    @Test fun recommendedIsSectioned() = runTest {
+        val rec = tree.getChildren(MediaIds.RECOMMENDED)!!
+        assertEquals(listOf("More from Async Orchestra", "New Releases for You"), rec.map { it.groupTitle }.distinct())
+    }
+
+    @Test fun shelfSongsQueueWithinTheShelf() = runTest {
+        val shelves = tree.getChildren(MediaIds.CHARTS)!!
+        val topSongs = MediaIds.shelf(MediaIds.CHARTS, "songs")
+        assertEquals(topSongs, shelves.first().mediaId)
+        assertEquals(MediaIds.Parsed.ShelfId(MediaIds.CHARTS, "songs"), MediaIds.parse(topSongs))
+        assertEquals("Top Songs", tree.getItem(topSongs)!!.title)
+        val songs = tree.getChildren(topSongs)!!
+        assertEquals(5, songs.size)
+        val queue = tree.resolveQueue(songs[2].mediaId)!!
+        assertEquals(5, queue.songs.size)
+        assertEquals(2, queue.startIndex)
+    }
+
+    @Test fun playlistsSortRowSwitchesAndRemembersOrder() = runTest {
+        assertEquals(listOf("Sort by Date Added", "Chill Commute", "Driving Mix", "Favorites"),
+            tree.getChildren(MediaIds.PLAYLISTS)!!.map { it.title })
+        assertEquals(listOf("Sort A–Z", "Favorites", "Chill Commute", "Driving Mix"),
+            tree.getChildren(MediaIds.PLAYLISTS_BY_DATE)!!.map { it.title })
+        // Remembered: Playlists now opens newest first.
+        assertEquals(MediaIds.PLAYLISTS_A_Z, ids(MediaIds.PLAYLISTS).first())
+        assertEquals("Chill Commute", tree.getChildren(MediaIds.PLAYLISTS_A_Z)!![1].title)
+        assertEquals(MediaIds.PLAYLISTS_BY_DATE, ids(MediaIds.PLAYLISTS).first())
+    }
 }
 
 class LibraryTreeBucketTest {
@@ -156,29 +191,5 @@ class LibraryTreeBucketTest {
     @Test fun bucketIdsParse() {
         assertEquals(MediaIds.Parsed.Bucket(MediaIds.SONGS, "A"), MediaIds.parse("library/songs/A"))
         assertEquals(MediaIds.Parsed.Fixed(MediaIds.SONGS), MediaIds.parse("library/songs"))
-    }
-
-    @Test fun recentlyPlayedHasContainerAndSongSections() = runTest {
-        val recent = tree.getChildren(MediaIds.RECENT)!!
-        assertEquals(listOf("Albums & Playlists", "Songs"), recent.map { it.groupTitle }.distinct())
-        assertTrue(recent.last().playable)
-    }
-
-    @Test fun recommendedIsSectioned() = runTest {
-        val rec = tree.getChildren(MediaIds.RECOMMENDED)!!
-        assertEquals(listOf("More from Async Orchestra", "New Releases for You"), rec.map { it.groupTitle }.distinct())
-    }
-
-    @Test fun shelfSongsQueueWithinTheShelf() = runTest {
-        val shelves = tree.getChildren(MediaIds.CHARTS)!!
-        val topSongs = MediaIds.shelf(MediaIds.CHARTS, "songs")
-        assertEquals(topSongs, shelves.first().mediaId)
-        assertEquals(MediaIds.Parsed.ShelfId(MediaIds.CHARTS, "songs"), MediaIds.parse(topSongs))
-        assertEquals("Top Songs", tree.getItem(topSongs)!!.title)
-        val songs = tree.getChildren(topSongs)!!
-        assertEquals(5, songs.size)
-        val queue = tree.resolveQueue(songs[2].mediaId)!!
-        assertEquals(5, queue.songs.size)
-        assertEquals(2, queue.startIndex)
     }
 }
