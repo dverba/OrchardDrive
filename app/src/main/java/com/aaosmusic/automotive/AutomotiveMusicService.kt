@@ -11,6 +11,7 @@ import com.aaosmusic.OrchardDriveApp
 import com.aaosmusic.R
 import com.aaosmusic.ui.MainActivity
 import com.aaosmusic.util.AppLog
+import com.aaosmusic.util.AppLog.Category.AAOS_LIBRARY
 import com.aaosmusic.util.AppLog.Category.MEDIA_SESSION
 import com.aaosmusic.util.AppLog.Category.PLAYBACK
 import kotlinx.coroutines.CoroutineScope
@@ -207,6 +208,7 @@ class AutomotiveMusicService : MediaLibraryService() {
             previousId = mediaItem?.mediaId
             if (previous == null || previous == mediaItem?.mediaId) return
             val list = (MediaIds.parse(previous) as? MediaIds.Parsed.SongId)?.context ?: return
+            AppLog.d(AAOS_LIBRARY, "Re-sending '$list' to clear its progress bar")
             session.notifyChildrenChanged(list, Int.MAX_VALUE, null)
         }
     }
