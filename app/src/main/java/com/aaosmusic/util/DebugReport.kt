@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.Process
 import com.aaosmusic.OrchardDriveApp
 import com.aaosmusic.BuildConfig
+import com.aaosmusic.providers.apple.CellularQualitySetting
 import com.aaosmusic.util.AppLog.Category.APP
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -58,6 +59,9 @@ object DebugReport {
         appendLine("Flags      fake=${BuildConfig.USE_FAKE_PROVIDER} appleAuth=${BuildConfig.ENABLE_APPLE_AUTH} " +
             "applePlayback=${BuildConfig.ENABLE_APPLE_PLAYBACK} sdk=${BuildConfig.APPLE_SDK_AVAILABLE}")
         appendLine("Signed in  ${a.appleTokens.userToken != null}; developer token ${if (a.appleTokens.developerToken != null) "present" else "missing"}")
+        appendLine("Network    ${network(app)}")
+        appendLine("Quality    ${CellularQualitySetting(app).describe()}")
+        appendLine("Assets     ${playbackAssets(app)}")
         if (extra.isNotBlank()) appendLine(extra)
         File(app.filesDir, CRASH_FILE).takeIf { it.exists() }?.let {
             appendLine("\n=== Last crash ===")
@@ -102,6 +106,38 @@ object DebugReport {
         dm.displays.joinToString(" | ") { d ->
             val m = android.util.DisplayMetrics().also { @Suppress("DEPRECATION") d.getRealMetrics(it) }
             "#${d.displayId} ${d.name}: ${m.widthPixels}x${m.heightPixels} @ ${m.densityDpi}dpi (xdpi ${"%.0f".format(m.xdpi)})"
+        }
+    }.getOrElse { "unavailable: $it" }
+
+    /**
+     * The active network as MusicKit sees it: it applies its cellular quality rules only when the
+     * legacy NetworkInfo type is TYPE_MOBILE (0) and treats every other type like Wi-Fi.
+     */
+    @Suppress("DEPRECATION")
+    private fun network(context: Context): String = runCatching {
+        val cm = context.getSystemService(android.net.ConnectivityManager::class.java)
+        val info = cm.activeNetworkInfo ?: return "none"
+        val caps = cm.getNetworkCapabilities(cm.activeNetwork)
+        val transports = listOf(
+            android.net.NetworkCapabilities.TRANSPORT_CELLULAR to "cellular",
+            android.net.NetworkCapabilities.TRANSPORT_WIFI to "wifi",
+            android.net.NetworkCapabilities.TRANSPORT_ETHERNET to "ethernet",
+        ).filter { caps?.hasTransport(it.first) == true }.joinToString(",") { it.second }
+        val musicKit = if (info.type == android.net.ConnectivityManager.TYPE_MOBILE) "cellular rules" else "wifi rules"
+        "${info.typeName} (type ${info.type}, transports [$transports], " +
+            "down ${caps?.linkDownstreamBandwidthKbps} kbps) → MusicKit $musicKit"
+    }.getOrElse { "unavailable: $it" }
+
+    /**
+     * MusicKit's cached song files, newest first. Size ÷ song length gives the real stream bitrate
+     * (about 1.9 MB/min at 256 kbps, 0.95 MB/min at 128).
+     */
+    private fun playbackAssets(context: Context): String = runCatching {
+        val files = File(context.cacheDir, "player/playback_assets").walkTopDown().filter { it.isFile }
+            .sortedByDescending { it.lastModified() }.take(8).toList()
+        if (files.isEmpty()) return "none cached"
+        files.joinToString("\n           ") { f ->
+            "${f.name}  ${"%.2f".format(f.length() / 1_048_576.0)} MB  ${java.util.Date(f.lastModified())}"
         }
     }.getOrElse { "unavailable: $it" }
 

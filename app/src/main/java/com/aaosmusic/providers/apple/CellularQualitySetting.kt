@@ -27,9 +27,18 @@ class CellularQualitySetting(context: Context) {
             .edit().putBoolean(SDK_KEY, high).apply()
     }
 
+    /** Our setting next to what MusicKit will actually read, for debug reports. */
+    fun describe(): String {
+        val sdk = app.getSharedPreferences(SDK_PREFS, Context.MODE_PRIVATE)
+        return "high=$high; sdk $SDK_KEY=${sdk.getBoolean(SDK_KEY, false)} " +
+            "$SDK_CELLULAR_KEY=${sdk.getBoolean(SDK_CELLULAR_KEY, true)}"
+    }
+
     private companion object {
         const val KEY = "high_quality_cellular"
         const val SDK_PREFS = "com.apple.android.music.playback_preferences"
         const val SDK_KEY = "high_quality_on_cellular_enabled"
+        /** MusicKit only honours [SDK_KEY] while this (default true) is also set. */
+        const val SDK_CELLULAR_KEY = "cellular_data_enabled"
     }
 }
