@@ -72,7 +72,7 @@ android {
         targetSdk = 35
         // Every Play upload needs a higher versionCode: use the git commit count.
         versionCode = gitCommitCount()
-        versionName = "0.2.5"
+        versionName = "0.2.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
