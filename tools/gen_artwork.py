@@ -1,50 +1,60 @@
-"""Generates placeholder artwork PNGs for the fake provider. No dependencies beyond stdlib."""
-import os, struct, sys, zlib
+"""Generates the demo library's artwork PNGs (fake provider) from the Orchard Drive fallback motifs.
+
+Needs rsvg-convert (brew install librsvg).
+"""
+import os, subprocess, sys, tempfile
 
 SIZE = 512
 OUT = sys.argv[1] if len(sys.argv) > 1 else "app/src/main/res/drawable-nodpi"
+NIGHT, DUSK, ASPHALT, SUNSET = "#0A0B0F", "#161B2E", "#2D303C", "#FF5A45"
 
-# name -> (top-left rgb, bottom-right rgb, shape)
+TREE = """<symbol id="tr" viewBox="0 0 100 126">
+  <rect x="45.5" y="78" width="9" height="48" fill="#08090C"/>
+  <g fill="#0E1712"><circle cx="50" cy="32" r="30"/><circle cx="22" cy="58" r="22"/><circle cx="78" cy="58" r="22"/><circle cx="50" cy="64" r="24"/></g>
+  <g stroke="#08090C" stroke-width="6" stroke-linecap="round" fill="none"><path d="M50 100 L35 85"/><path d="M50 100 L65 85"/><path d="M50 104 V80"/></g>
+  <g fill="#2F4A3A"><ellipse cx="52" cy="24" rx="7" ry="4" transform="rotate(-62 52 24)"/><ellipse cx="18" cy="50" rx="7" ry="4" transform="rotate(24 18 50)"/><ellipse cx="80" cy="50" rx="7" ry="4" transform="rotate(-24 80 50)"/></g>
+  <g fill="#FF5A45"><circle cx="58" cy="40" r="9.5"/><circle cx="30" cy="62" r="9.5"/><circle cx="68" cy="66" r="9.5"/></g>
+</symbol>"""
+
+
+def album(sky, sun_y, sun_r):
+    """Sun setting over the road."""
+    return f"""<rect width="100" height="100" fill="{sky}"/><circle cx="50" cy="{sun_y}" r="{sun_r}" fill="{SUNSET}"/>
+<rect y="62" width="100" height="38" fill="{NIGHT}"/><polygon points="49,62 51,62 78,100 22,100" fill="{ASPHALT}"/>
+<g fill="{SUNSET}"><rect x="49.5" y="68" width="1" height="3"/><rect x="49" y="76" width="2" height="6"/><rect x="48.4" y="88" width="3.2" height="12"/></g>"""
+
+
+def playlist(bg, ink):
+    """List lines and a note."""
+    return f"""<rect width="100" height="100" fill="{bg}"/><g fill="{ink}"><rect x="20" y="30" width="44" height="7" rx="3.5"/>
+<rect x="20" y="46" width="44" height="7" rx="3.5"/><rect x="20" y="62" width="28" height="7" rx="3.5"/>
+<path d="M70 30 h10 v8 h-5 v24 a7 7 0 1 1 -5 -6.7 z"/></g>"""
+
+
+def artist(sky, tree_x):
+    """An orange tree against the sun."""
+    return f"""<rect width="100" height="100" fill="{sky}"/><circle cx="50" cy="66" r="30" fill="{SUNSET}"/>
+<use href="#tr" x="{tree_x}" y="20" width="48" height="60"/><rect y="78" width="100" height="22" fill="{NIGHT}"/>"""
+
+
+# Variant 1 of each is the design's motif; 2 and 3 shift it so the demo library isn't identical tiles.
 ART = {
-    "art_album_1": ((250, 45, 72), (90, 20, 120), "circle"),
-    "art_album_2": ((20, 140, 220), (10, 40, 90), "circle"),
-    "art_album_3": ((250, 170, 30), (180, 60, 20), "circle"),
-    "art_artist_1": ((120, 60, 200), (30, 20, 60), "head"),
-    "art_artist_2": ((30, 180, 140), (10, 60, 50), "head"),
-    "art_artist_3": ((230, 90, 160), (80, 30, 60), "head"),
-    "art_playlist_1": ((60, 60, 70), (250, 45, 72), "bars"),
-    "art_playlist_2": ((40, 90, 60), (200, 230, 80), "bars"),
-    "art_playlist_3": ((20, 30, 80), (90, 200, 250), "bars"),
+    "art_album_1": album(DUSK, 62, 26),
+    "art_album_2": album(DUSK, 70, 34),
+    "art_album_3": album(ASPHALT, 56, 18),
+    "art_artist_1": artist(DUSK, 26),
+    "art_artist_2": artist(ASPHALT, 14),
+    "art_artist_3": artist(NIGHT, 38),
+    "art_playlist_1": playlist(SUNSET, NIGHT),
+    "art_playlist_2": playlist(DUSK, SUNSET),
+    "art_playlist_3": playlist(ASPHALT, "#F4F1EC"),
 }
 
-def pixel(x, y, a, b, shape):
-    t = (x + y) / (2 * (SIZE - 1))
-    r, g, bl = (int(a[i] + (b[i] - a[i]) * t) for i in range(3))
-    cx = cy = SIZE / 2
-    on = False
-    if shape == "circle":
-        d = ((x - cx) ** 2 + (y - cy) ** 2) ** 0.5
-        on = 150 < d < 170 or d < 30
-    elif shape == "head":
-        on = ((x - cx) ** 2 + (y - 200) ** 2) < 80 ** 2 or (
-            y > 300 and ((x - cx) ** 2 / 150 ** 2 + (y - 420) ** 2 / 130 ** 2) < 1)
-    elif shape == "bars":
-        on = any(abs(y - row) < 14 and 110 < x < 402 - k * 60 for k, row in enumerate((170, 240, 310, 380)))
-    if on:
-        r, g, bl = (min(255, c + 110) for c in (r, g, bl))
-    return bytes((r, g, bl))
-
-def png(path, a, b, shape):
-    raw = b"".join(b"\x00" + b"".join(pixel(x, y, a, b, shape) for x in range(SIZE)) for y in range(SIZE))
-    def chunk(tag, data):
-        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
-    with open(path, "wb") as f:
-        f.write(b"\x89PNG\r\n\x1a\n")
-        f.write(chunk(b"IHDR", struct.pack(">IIBBBBB", SIZE, SIZE, 8, 2, 0, 0, 0)))
-        f.write(chunk(b"IDAT", zlib.compress(raw, 9)))
-        f.write(chunk(b"IEND", b""))
-
 os.makedirs(OUT, exist_ok=True)
-for name, (a, b, shape) in ART.items():
-    png(os.path.join(OUT, name + ".png"), a, b, shape)
-    print("wrote", name)
+with tempfile.TemporaryDirectory() as tmp:
+    for name, body in ART.items():
+        svg = os.path.join(tmp, name + ".svg")
+        with open(svg, "w") as f:
+            f.write(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs>{TREE}</defs>{body}</svg>')
+        subprocess.run(["rsvg-convert", "-w", str(SIZE), "-h", str(SIZE), svg, "-o", os.path.join(OUT, name + ".png")], check=True)
+        print("wrote", name)

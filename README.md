@@ -65,7 +65,8 @@ app/src/noapplesdk/               stub used when the AARs are absent
   ui/MainActivity.kt              parked-only settings screen (account, display, about)
   ui/DiagnosticsActivity.kt       status, debug report, test tools (Settings → tap Version 7 times)
   util/AppLog.kt                  structured logging + token redaction
-tools/gen_artwork.py              regenerates placeholder artwork
+tools/gen_artwork.py              regenerates the demo library's artwork (needs rsvg-convert)
+tools/gen_icon_vector.py          regenerates the adaptive launcher icon from the store icon
 ```
 
 Design notes: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).

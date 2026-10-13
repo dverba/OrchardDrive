@@ -1,9 +1,10 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp" android:height="24dp"
     android:viewportWidth="24" android:viewportHeight="24">
-    <!-- Inset: Media Center stretches row artwork to the full tile. -->
-    <group android:scaleX="0.6" android:scaleY="0.6" android:pivotX="12" android:pivotY="12">
-        <path android:fillColor="#FFFFFFFF"
+    <!-- Dusk tile with an Ink glyph, inset: Media Center stretches row artwork to the full tile. -->
+    <path android:fillColor="#FF161B2E" android:pathData="M0,0h24v24h-24z" />
+    <group android:scaleX="0.56" android:scaleY="0.56" android:pivotX="12" android:pivotY="12">
+        <path android:fillColor="#FFF4F1EC"
             android:pathData="M3,18h6v-2H3v2zM3,6v2h18V6H3zM3,13h12v-2H3v2z" />
     </group>
 </vector>
