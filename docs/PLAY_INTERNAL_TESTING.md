@@ -13,7 +13,7 @@ review** (that only applies to production) ([Distribute to cars](https://develop
 | Package name | `com.dverba.aaosmusic` (permanent) |
 | App icon 512×512 | `store/icon-512.png` |
 | Feature graphic 1024×500 | `store/feature-graphic-1024x500.png` |
-| Car screenshots | `store/screenshots/landscape/` (1024×768) and `store/screenshots/portrait/` (800×1280), demo library |
+| Car screenshots | `store/screenshots/landscape/` (1024×768) and `store/screenshots/portrait/` (800×1280), real Apple Music library |
 | Privacy policy | https://dverba.github.io/aaosmusic-signin/privacy.html |
 
 Target API 35 meets Play's Automotive minimum (API 35 from 31 Aug 2026; phones need 36). The 64-bit
@@ -74,8 +74,9 @@ track for Android Automotive OS"** → **Save**
 - **Phone screenshots: required (at least 2)**, even for a car-only app. Use `store/screenshots/landscape/`.
 - **Android Automotive OS screenshots** (at least 2 of each): `store/screenshots/landscape/*.png` (1024×768) and
   `store/screenshots/portrait/*.png` (800×1280). They were captured, unscaled, on Google's generic AAOS image with
-  the *Automotive (1024p landscape)* and *Automotive Portrait* emulator profiles, as Play asks, using the demo
-  library (and the Apple build's signed-out Settings for `05-settings.png`).
+  the *Automotive (1024p landscape)* and *Automotive Portrait* emulator profiles, as Play asks, from the
+  Apple build signed in to a real library (the token restored via `run-as --user 10` into
+  `shared_prefs/apple_music_auth.xml`); `05-settings.png` is the signed-out sign-in screen.
 - Feature graphic source: `store/feature-graphic.html` (renders `store/icon.svg`). Re-render with
   `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars --force-device-scale-factor=1 --window-size=1024,500 --screenshot=$PWD/store/feature-graphic-1024x500.png file://$PWD/store/feature-graphic.html`;
   icon: `rsvg-convert -w 512 -h 512 store/icon.svg -o store/icon-512.png`.
