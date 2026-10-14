@@ -132,3 +132,9 @@ Polestar: see [docs/POLESTAR_TESTING.md](docs/POLESTAR_TESTING.md).
 ### Next milestone
 
 Milestone 11: install `dist/OrchardDrive-car-*.apk` on the Polestar 4 and run docs/POLESTAR_TESTING.md.
+
+## License
+
+[MIT](LICENSE). This covers this repository's code only: Apple's MusicKit SDK is not included and
+stays under Apple's terms. Orchard Drive is not affiliated with Apple; Apple Music is a trademark of
+Apple Inc.
