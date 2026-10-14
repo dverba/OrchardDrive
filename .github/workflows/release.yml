@@ -1,0 +1,96 @@
+# Push a tag like v0.2.7 (matching versionName in app/build.gradle.kts) to build a release:
+#  - the Play bundle (.aab) and a sideload APK, attached to a GitHub Release
+#  - the .aab uploaded to Play internal testing, if PLAY_SERVICE_ACCOUNT_JSON is set
+#
+# Secrets:
+#   SDK_REPO_TOKEN            read-only token for the private dverba/orchard-drive-sdk repo (Apple's AARs)
+#   CAR_KEYSTORE_BASE64       base64 of secrets/car-release.jks
+#   CAR_SIGNING_PROPERTIES    contents of secrets/car-signing.properties
+#   PLAY_SERVICE_ACCOUNT_JSON optional; Play Console service account key
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # versionCode is the commit count
+
+      - name: Check the tag matches versionName
+        run: |
+          version=$(sed -n 's/.*versionName = "\(.*\)"/\1/p' app/build.gradle.kts)
+          if [ "v$version" != "$TAG" ]; then
+            echo "::error::Tag $TAG doesn't match versionName $version"; exit 1
+          fi
+
+      - name: Fetch Apple's MusicKit SDK
+        uses: actions/checkout@v4
+        with:
+          repository: dverba/orchard-drive-sdk
+          token: ${{ secrets.SDK_REPO_TOKEN }}
+          path: app/libs/apple
+
+      - name: Set up signing
+        env:
+          KEYSTORE: ${{ secrets.CAR_KEYSTORE_BASE64 }}
+          SIGNING: ${{ secrets.CAR_SIGNING_PROPERTIES }}
+        run: |
+          if [ -z "$KEYSTORE" ] || [ -z "$SIGNING" ]; then
+            echo "::error::Signing secrets are missing; refusing to build a debug-signed release"; exit 1
+          fi
+          mkdir -p secrets
+          echo "$KEYSTORE" | base64 --decode > secrets/car-release.jks
+          printf '%s\n' "$SIGNING" > secrets/car-signing.properties
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build
+        run: ./gradlew testDebugUnitTest carBundle sideloadApk
+
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<'EOF'
+          ## Installing
+
+          Orchard Drive is meant to be installed from Google Play on your car.
+
+          **`OrchardDrive-*.apk`** is for sideloading where that's possible (emulators, development boards and
+          the few unlocked cars). Before you use it:
+          - **Most cars block it.** Production cars with Google built-in (Polestar, Volvo and others) don't allow
+            apps from outside the Play Store.
+          - **No automatic updates.** Download each new release yourself.
+          - **It can't update the Play version, or the other way round.** They're signed differently, so switching
+            means uninstalling, which signs you out and clears your resume point.
+
+          The `.aab` is the Google Play upload and can't be installed directly.
+          EOF
+          gh release create "$TAG" --title "Orchard Drive ${TAG#v}" --notes-file notes.md --generate-notes \
+            dist/OrchardDrive-*.apk dist/OrchardDrive-car-*.aab
+
+      - name: Upload to Play internal testing
+        env:
+          PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        if: env.PLAY_JSON != ''
+        uses: r0adkll/upload-google-play@v1.1.3
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.dverba.aaosmusic
+          releaseFiles: dist/OrchardDrive-car-*.aab
+          track: internal
+          status: completed

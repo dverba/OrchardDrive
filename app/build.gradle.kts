@@ -126,6 +126,13 @@ android {
             buildConfigField("boolean", "ENABLE_DEBUG_MENU", "true")
             buildConfigField("String", "APPLE_DEVELOPER_TOKEN", "\"\"")
         }
+        // Public APK on GitHub Releases: the car build without the debug screen or debug reports.
+        create("sideload") {
+            initWith(getByName("car"))
+            matchingFallbacks += "release"
+            versionNameSuffix = "-sideload"
+            buildConfigField("boolean", "ENABLE_DEBUG_MENU", "false")
+        }
     }
 
     buildFeatures {
@@ -179,4 +186,12 @@ tasks.register<Copy>("carApk") {
     from(layout.buildDirectory.dir("outputs/apk/car")) { include("*.apk") }
     into(rootProject.layout.projectDirectory.dir("dist"))
     rename { "OrchardDrive-car-${android.defaultConfig.versionName}.apk" }
+}
+
+/** `./gradlew sideloadApk` → dist/OrchardDrive-<version>.apk, the public sideload build (CI attaches it to releases). */
+tasks.register<Copy>("sideloadApk") {
+    dependsOn("assembleSideload")
+    from(layout.buildDirectory.dir("outputs/apk/sideload")) { include("*.apk") }
+    into(rootProject.layout.projectDirectory.dir("dist"))
+    rename { "OrchardDrive-${android.defaultConfig.versionName}.apk" }
 }

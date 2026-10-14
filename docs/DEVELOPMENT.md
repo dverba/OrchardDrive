@@ -126,3 +126,12 @@ Polestar: see [docs/POLESTAR_TESTING.md](POLESTAR_TESTING.md).
 ### Next milestone
 
 Milestone 11: install `dist/OrchardDrive-car-*.apk` on the Polestar 4 and run POLESTAR_TESTING.md.
+
+## Releasing
+
+GitHub Actions builds every push (`.github/workflows/build.yml`: demo app + unit tests). To release, bump
+`versionName` in `app/build.gradle.kts`, commit, then `git tag v<version> && git push origin v<version>`.
+`.github/workflows/release.yml` then builds the Play bundle and the sideload APK (`./gradlew sideloadApk`:
+the car build without the debug screen), attaches both to a GitHub Release, and uploads the bundle to
+Play internal testing when `PLAY_SERVICE_ACCOUNT_JSON` is set. It needs the secrets listed at the top of
+that file; Apple's AARs come from the private `dverba/orchard-drive-sdk` repo.
