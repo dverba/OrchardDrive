@@ -20,3 +20,6 @@ __pycache__/
 
 # Built APKs for sideloading
 /dist/
+
+# Supabase CLI state
+relay/supabase/.temp/
