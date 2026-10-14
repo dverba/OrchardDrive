@@ -39,8 +39,8 @@
 
 ## Getting it
 
-During the beta, Orchard Drive is only available through Google Play testing. To join, contact me
-(see [Feedback](#feedback--support)). Once you're added, find **Orchard Drive** in your car's Play Store.
+Orchard Drive will be available on Google Play once the closed beta is complete. You'll find it in
+your car's Play Store.
 
 After installing:
 1. Open **Media** in your car and choose **Orchard Drive**.
