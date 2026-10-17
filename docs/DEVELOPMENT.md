@@ -54,6 +54,7 @@ app/src/main/java/com/aaosmusic/
   providers/apple/                AppleMusicProvider, API client, JSON mapping, token store
 app/src/applesdk/                 MusicKit-dependent code (AppleMusicPlayer); compiled only with the AARs
 app/src/noapplesdk/               stub used when the AARs are absent
+buildSrc/MusicKitSongIdFix.kt     build-time patch so MusicKit plays catalog ids above Int.MAX_VALUE (2026+ releases)
   automotive/ArtworkProvider.kt   content:// proxy for remote artwork (Media Center needs it)
   repository/MusicRepository.kt   provider facade; future cache layer
   ui/MainActivity.kt              parked-only settings screen (account, display, about)

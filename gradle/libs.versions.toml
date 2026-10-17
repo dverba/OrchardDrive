@@ -10,6 +10,7 @@ junit = "4.13.2"
 serialization = "1.9.0"
 appcompat = "1.7.1"
 zxing = "3.5.3"
+asm = "9.8"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "core" }
@@ -25,6 +26,9 @@ guava = { module = "com.google.guava:guava", version.ref = "guava" }
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
 zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 junit = { module = "junit:junit", version.ref = "junit" }
+# buildSrc only: the build-time patch of Apple's MusicKit SDK (buildSrc/src/main/kotlin/MusicKitSongIdFix.kt)
+android-gradle-api = { module = "com.android.tools.build:gradle-api", version.ref = "agp" }
+asm = { module = "org.ow2.asm:asm", version.ref = "asm" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

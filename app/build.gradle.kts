@@ -145,6 +145,15 @@ android {
     }
 }
 
+// Patches MusicKit so songs with catalog ids above Int.MAX_VALUE play (see buildSrc/src/main/kotlin/MusicKitSongIdFix.kt).
+androidComponents {
+    onVariants { variant ->
+        if (appleSdkAvailable) {
+            variant.instrumentation.transformClassesWith(MusicKitSongIdFix::class.java, com.android.build.api.instrumentation.InstrumentationScope.ALL) {}
+        }
+    }
+}
+
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
